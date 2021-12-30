@@ -67,7 +67,7 @@
   #endif
 #endif
 
-#if defined(STM32F0xx) || defined(STM32G0xx)
+#ifdef STM32F0xx
   #define MCU_STEP_TIMER 16
   #define MCU_TEMP_TIMER 17
 #elif defined(STM32F1xx)
@@ -97,15 +97,9 @@
 #define STEP_TIMER_DEV _TIMER_DEV(STEP_TIMER)
 #define TEMP_TIMER_DEV _TIMER_DEV(TEMP_TIMER)
 
-// --------------------------------------------------------------------------
-// Local defines
-// --------------------------------------------------------------------------
-
-#define NUM_HARDWARE_TIMERS 2
-
-// --------------------------------------------------------------------------
+// ------------------------
 // Private Variables
-// --------------------------------------------------------------------------
+// ------------------------
 
 HardwareTimer *timer_instance[NUM_HARDWARE_TIMERS] = { nullptr };
 
@@ -116,7 +110,7 @@ HardwareTimer *timer_instance[NUM_HARDWARE_TIMERS] = { nullptr };
 uint32_t GetStepperTimerClkFreq() {
   // Timer input clocks vary between devices, and in some cases between timers on the same device.
   // Retrieve at runtime to ensure device compatibility. Cache result to avoid repeated overhead.
-  static uint32_t clkfreq = timer_instance[MF_TIMER_STEP]->getTimerClkFreq();
+  static uint32_t clkfreq = timer_instance[STEP_TIMER_NUM]->getTimerClkFreq();
   return clkfreq;
 }
 
@@ -124,7 +118,7 @@ uint32_t GetStepperTimerClkFreq() {
 void HAL_timer_start(const uint8_t timer_num, const uint32_t frequency) {
   if (!HAL_timer_initialized(timer_num)) {
     switch (timer_num) {
-      case MF_TIMER_STEP: // STEPPER TIMER - use a 32bit timer if possible
+      case STEP_TIMER_NUM: // STEPPER TIMER - use a 32bit timer if possible
         timer_instance[timer_num] = new HardwareTimer(STEP_TIMER_DEV);
         /* Set the prescaler to the final desired value.
          * This will change the effective ISR callback frequency but when
@@ -143,7 +137,7 @@ void HAL_timer_start(const uint8_t timer_num, const uint32_t frequency) {
         timer_instance[timer_num]->setPrescaleFactor(STEPPER_TIMER_PRESCALE); //the -1 is done internally
         timer_instance[timer_num]->setOverflow(_MIN(hal_timer_t(HAL_TIMER_TYPE_MAX), (HAL_TIMER_RATE) / (STEPPER_TIMER_PRESCALE) /* /frequency */), TICK_FORMAT);
         break;
-      case MF_TIMER_TEMP: // TEMP TIMER - any available 16bit timer
+      case TEMP_TIMER_NUM: // TEMP TIMER - any available 16bit timer
         timer_instance[timer_num] = new HardwareTimer(TEMP_TIMER_DEV);
         // The prescale factor is computed automatically for HERTZ_FORMAT
         timer_instance[timer_num]->setOverflow(frequency, HERTZ_FORMAT);
@@ -163,10 +157,10 @@ void HAL_timer_start(const uint8_t timer_num, const uint32_t frequency) {
     // These calls can be removed and replaced with
     // timer_instance[timer_num]->setInterruptPriority
     switch (timer_num) {
-      case MF_TIMER_STEP:
+      case STEP_TIMER_NUM:
         timer_instance[timer_num]->setInterruptPriority(STEP_TIMER_IRQ_PRIO, 0);
         break;
-      case MF_TIMER_TEMP:
+      case TEMP_TIMER_NUM:
         timer_instance[timer_num]->setInterruptPriority(TEMP_TIMER_IRQ_PRIO, 0);
         break;
     }
@@ -176,10 +170,10 @@ void HAL_timer_start(const uint8_t timer_num, const uint32_t frequency) {
 void HAL_timer_enable_interrupt(const uint8_t timer_num) {
   if (HAL_timer_initialized(timer_num) && !timer_instance[timer_num]->hasInterrupt()) {
     switch (timer_num) {
-      case MF_TIMER_STEP:
+      case STEP_TIMER_NUM:
         timer_instance[timer_num]->attachInterrupt(Step_Handler);
         break;
-      case MF_TIMER_TEMP:
+      case TEMP_TIMER_NUM:
         timer_instance[timer_num]->attachInterrupt(Temp_Handler);
         break;
     }

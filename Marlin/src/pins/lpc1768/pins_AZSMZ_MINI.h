@@ -27,7 +27,7 @@
 
 #include "env_validate.h"
 
-#define BOARD_INFO_NAME "AZSMZ Mini"
+#define BOARD_INFO_NAME "AZSMZ MINI"
 
 //
 // Servos
@@ -76,7 +76,6 @@
 //
 // Heaters / Fans
 //
-
 // EFB
 #define HEATER_0_PIN                       P2_04
 #define HEATER_BED_PIN                     P2_05
@@ -118,14 +117,14 @@
 //
 // Ethernet pins
 //
-#define REF_CLK                            P1_15
 #define ENET_MDIO                          P1_17
-#define ENET_MOC                           P1_16
-#define ENET_CRS                           P1_08
 #define ENET_RX_ER                         P1_14
-#define ENET_TX_EN                         P1_04
-#define ENET_RXD0                          P1_09
 #define ENET_RXD1                          P1_10
+#define ENET_MOC                           P1_16
+#define REF_CLK                            P1_15
+#define ENET_RXD0                          P1_09
+#define ENET_CRS                           P1_08
+#define ENET_TX_EN                         P1_04
 #define ENET_TXD0                          P1_00
 #define ENET_TXD1                          P1_01
 
@@ -145,9 +144,9 @@
  *  PWM1.4   DIO53   SDSS(SSEL0)      J3-5  AUX-3
  *  PWM1.4   DIO46   Z_STEP_PIN
  *  PWM1.5   DIO3    X_MIN_PIN        10K PULLUP TO 3.3v, 1K SERIES
- *  PWM1.5   DIO9    MOSFET_B_PIN
+ *  PWM1.5   DIO9    RAMPS_D9_PIN
  *  PWM1.6   DIO14   Y_MIN_PIN        10K PULLUP TO 3.3v, 1K SERIES
- *  PWM1.6   DIO10   MOSFET_A_PIN
+ *  PWM1.6   DIO10   RAMPS_D10_PIN
  */
 
  /**

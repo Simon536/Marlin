@@ -21,10 +21,6 @@
  */
 #pragma once
 
-/**
- * BigTreeTech SKR 1.1 pin assignments
- */
-
 #define BOARD_INFO_NAME "BTT SKR V1.1"
 
 //
@@ -57,25 +53,27 @@
 #define E0_ENABLE_PIN                      P2_12
 
 
-/**        ------                  ------
- *   1.30 |10  9 | 2.11      0.17 |10  9 | 0.15
- *   0.18 | 8  7 | 0.16      3.26 | 8  7 | 1.23
- *   0.15   6  5 | --        3.25   6  5 | 0.18
- *     -- | 4  3 | --        1.31 | 4  3 | RESET
- *    GND | 2  1 | 5V         GND | 2  1 | --
- *         ------                  ------
- *          EXP1                    EXP2
+/**
+ *          ------                    ------
+ *      NC | 1  2 | GND           5V | 1  2 | GND
+ *   RESET | 3  4 | 1.31          NC | 3  4 | NC
+ *    0.18 | 5  6   3.25          NC | 5  6   0.15
+ *    1.23 | 7  8 | 3.26        0.16 | 7  8 | 0.18
+ *    0.15 | 9 10 | 0.17        2.11 | 9 10 | 1.30
+ *          ------                    ------
+ *           EXP2                      EXP1
  */
-#define EXP1_03_PIN                        -1     // NC
-#define EXP1_04_PIN                        -1     // NC
-#define EXP1_05_PIN                        -1     // NC
+
+#define EXP1_03_PIN                        -1
+#define EXP1_04_PIN                        -1
+#define EXP1_05_PIN                        -1
 #define EXP1_06_PIN                        P0_15
 #define EXP1_07_PIN                        P0_16
 #define EXP1_08_PIN                        P0_18
 #define EXP1_09_PIN                        P2_11
 #define EXP1_10_PIN                        P1_30
 
-#define EXP2_03_PIN                        -1     // RESET
+#define EXP2_03_PIN                        -1
 #define EXP2_04_PIN                        P1_31
 #define EXP2_05_PIN                        P0_18
 #define EXP2_06_PIN                        P3_25

@@ -23,8 +23,6 @@
 
 #include "env_validate.h"
 
-#define USES_DIAG_JUMPERS
-
 // If you have the BigTreeTech driver expansion module, enable BTT_MOTOR_EXPANSION
 // https://github.com/bigtreetech/BTT-Expansion-module/tree/master/BTT%20EXP-MOT
 //#define BTT_MOTOR_EXPANSION
@@ -49,7 +47,8 @@
   #define FLASH_EEPROM_LEVELING
 #endif
 
-#define HAS_OTG_USB_HOST_SUPPORT                  // USB Flash Drive support
+// USB Flash Drive support
+#define HAS_OTG_USB_HOST_SUPPORT
 
 //
 // Servos
@@ -309,18 +308,20 @@
 //
 
 #ifndef SDCARD_CONNECTION
-  #define SDCARD_CONNECTION              ONBOARD
+  #define SDCARD_CONNECTION                  LCD
 #endif
 
-/**               ------                                      ------
- * (BEEPER) PG4  |10  9 | PA8  (BTN_ENC)         (MISO) PB14 |10  9 | PB13 (SCK)
- * (LCD_EN) PD11 | 8  7 | PD10 (LCD_RS)       (BTN_EN1) PG10 | 8  7 | PB12 (SD_SS)
- * (LCD_D4) PG2    6  5 | PG3  (LCD_D5)       (BTN_EN2) PF11   6  5 | PB15 (MOSI)
- * (LCD_D6) PG6  | 4  3 | PG7  (LCD_D7)     (SD_DETECT) PF12 | 4  3 | RESET
- *           GND | 2  1 | 5V                             GND | 2  1 | --
- *                ------                                      ------
- *                 EXP1                                        EXP2
+/**
+ *               -----                                             -----
+ *           NC | 1 2 | GND                                    5V | 1 2 | GND
+ *        RESET | 3 4 | PF12(SD_DETECT)             (LCD_D7)  PG7 | 3 4 | PG6  (LCD_D6)
+ *   (MOSI)PB15 | 5 6   PF11(BTN_EN2)               (LCD_D5)  PG3 | 5 6   PG2  (LCD_D4)
+ *  (SD_SS)PB12 | 7 8 | PG10(BTN_EN1)               (LCD_RS) PD10 | 7 8 | PD11 (LCD_EN)
+ *    (SCK)PB13 | 9 10| PB14(MISO)                 (BTN_ENC)  PA8 | 9 10| PG4  (BEEPER)
+ *               -----                                             -----
+ *               EXP2                                              EXP1
  */
+
 #define EXP1_03_PIN                         PG7
 #define EXP1_04_PIN                         PG6
 #define EXP1_05_PIN                         PG3
@@ -367,8 +368,8 @@
 
 #if ENABLED(BTT_MOTOR_EXPANSION)
   /**       -----                        -----
-   *    -- | . . | GND               -- | . . | GND
-   *    -- | . . | M1EN            M2EN | . . | M3EN
+   *    NC | . . | GND               NC | . . | GND
+   *    NC | . . | M1EN            M2EN | . . | M3EN
    * M1STP | . .   M1DIR           M1RX | . .   M1DIAG
    * M2DIR | . . | M2STP           M2RX | . . | M2DIAG
    * M3DIR | . . | M3STP           M3RX | . . | M3DIAG
@@ -447,45 +448,17 @@
     #define LCD_PINS_ENABLE          EXP1_03_PIN
     #define LCD_PINS_D4              EXP1_05_PIN
 
+    // CR10_STOCKDISPLAY default timing is too fast
+    #undef BOARD_ST7920_DELAY_1
+    #undef BOARD_ST7920_DELAY_2
+    #undef BOARD_ST7920_DELAY_3
+
   #elif ENABLED(MKS_MINI_12864)
 
     #define DOGLCD_A0                EXP1_04_PIN
     #define DOGLCD_CS                EXP1_05_PIN
     #define BTN_EN1                  EXP2_08_PIN
     #define BTN_EN2                  EXP2_06_PIN
-
-  #elif ENABLED(WYH_L12864)
-
-    #error "CAUTION! WYH_L12864 requires wiring modifications. Comment out this line to continue."
-
-    /**
-     * 1. Cut the tab off the LCD connector so it can be plugged into the "EXP1" connector the other way.
-     * 2. Swap the LCD's +5V (Pin2) and GND (Pin1) wires.
-     *
-     * !!! If you are unsure, ask for help! Your motherboard may be damaged in some circumstances !!!
-     *
-     * The WYH_L12864 connector plug:
-     *
-     *                  BEFORE                     AFTER
-     *                  ------                     ------
-     *              -- |10  9 | MOSI           -- |10  9 | MOSI
-     *         BTN_ENC | 8  7 | SCK       BTN_ENC | 8  7 | SCK
-     *         BTN_EN1 | 6  5   SID       BTN_EN1 | 6  5   SID
-     *         BTN_EN2 | 4  3 | CS        BTN_EN2 | 4  3 | CS
-     *              5V | 2  1 | GND           GND | 2  1 | 5V
-     *                  ------                     ------
-     *                   LCD                        LCD
-     */
-    #undef BEEPER_PIN
-    #undef BTN_ENC
-    #define BTN_EN1                  EXP1_06_PIN
-    #define BTN_EN2                  EXP1_04_PIN
-    #define BTN_ENC                  EXP1_08_PIN
-    #define DOGLCD_CS                EXP1_03_PIN
-    #define DOGLCD_A0                EXP1_05_PIN
-    #define DOGLCD_SCK               EXP1_07_PIN
-    #define DOGLCD_MOSI              EXP1_09_PIN
-    #define LCD_BACKLIGHT_PIN            -1
 
   #else
 
@@ -533,15 +506,15 @@
 #endif // HAS_WIRED_LCD
 
 // Alter timing for graphical display
-#if IS_U8GLIB_ST7920
+#if HAS_MARLINUI_U8GLIB
   #ifndef BOARD_ST7920_DELAY_1
-    #define BOARD_ST7920_DELAY_1             125
+    #define BOARD_ST7920_DELAY_1    DELAY_NS(125)
   #endif
   #ifndef BOARD_ST7920_DELAY_2
-    #define BOARD_ST7920_DELAY_2              90
+    #define BOARD_ST7920_DELAY_2    DELAY_NS(90)
   #endif
   #ifndef BOARD_ST7920_DELAY_3
-    #define BOARD_ST7920_DELAY_3             600
+    #define BOARD_ST7920_DELAY_3   DELAY_NS(600)
   #endif
 #endif
 
@@ -550,12 +523,12 @@
 //
 
 /**
- *          ------
- *      RX | 8  7 | 3.3V      GPIO0  PF14 ... Leave as unused (ESP3D software configures this with a pullup so OK to leave as floating)
- *   GPIO0 | 6  5 | Reset     GPIO2  PF15 ... must be high (ESP3D software configures this with a pullup so OK to leave as floating)
- *   GPIO2 | 4  3 | Enable    Reset  PG0  ... active low, probably OK to leave floating
- *     GND | 2  1 | TX        Enable PG1  ... Must be high for module to run
- *          ------
+ *          -----
+ *      TX | 1 2 | GND      Enable PG1   // Must be high for module to run
+ *  Enable | 3 4 | GPIO2    Reset  PG0   // active low, probably OK to leave floating
+ *   Reset | 5 6 | GPIO0    GPIO2  PF15  // must be high (ESP3D software configures this with a pullup so OK to leave as floating)
+ *    3.3V | 7 8 | RX       GPIO0  PF14  // Leave as unused (ESP3D software configures this with a pullup so OK to leave as floating)
+ *          -----
  *            W1
  */
 #define ESP_WIFI_MODULE_COM                    6  // Must also set either SERIAL_PORT or SERIAL_PORT_2 to this

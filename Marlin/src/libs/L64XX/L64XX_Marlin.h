@@ -118,11 +118,11 @@ public:
 
   #if ENABLED(MONITOR_L6470_DRIVER_STATUS)
     static bool monitor_paused;
-    static void pause_monitor(const bool p) { monitor_paused = p; }
+    static inline void pause_monitor(const bool p) { monitor_paused = p; }
     static void monitor_update(L64XX_axis_t stepper_index);
     static void monitor_driver();
   #else
-    static void pause_monitor(const bool) {}
+    static inline void pause_monitor(const bool) {}
   #endif
 
 //protected:

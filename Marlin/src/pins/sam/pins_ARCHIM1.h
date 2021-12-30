@@ -46,7 +46,8 @@
 //
 // Timers
 //
-#define MF_TIMER_STEP  3
+// These are already defined in DUE, so must be undefined first
+#define STEP_TIMER_NUM                         3
 #define HAL_STEP_TIMER_ISR()  void TC3_Handler()
 
 //

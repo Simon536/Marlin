@@ -22,7 +22,7 @@
 #pragma once
 
 #ifdef __cplusplus
-  extern "C" {
+  extern "C" { /* C-declarations for C++ */
 #endif
 
 #define MIN_EXT_SPEED_PERCENT    10

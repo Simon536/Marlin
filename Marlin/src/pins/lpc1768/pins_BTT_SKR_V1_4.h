@@ -21,10 +21,6 @@
  */
 #pragma once
 
-/**
- * BigTreeTech SKR 1.4 pin assignments
- */
-
 #include "env_validate.h"
 
 #ifndef BOARD_INFO_NAME
@@ -34,8 +30,6 @@
 #ifndef BOARD_CUSTOM_BUILD_FLAGS
   #define BOARD_CUSTOM_BUILD_FLAGS -DLPC_PINCFG_UART3_P4_28
 #endif
-
-#define USES_DIAG_PINS
 
 //
 // EEPROM
@@ -245,15 +239,16 @@
   #define TMC_BAUD_RATE                    19200
 #endif
 
-/**       ------                ------
- *  1.30 |10  9 | 0.28    0.17 |10  9 | 0.15
- *  1.18 | 8  7 | 1.19    3.26 | 8  7 | 0.16
- *  1.20   6  5 | 1.21    3.25   6  5 | 0.18
- *  1.22 | 4  3 | 1.23    1.31 | 4  3 | RESET
- *   GND | 2  1 | 5V       GND | 2  1 | --
- *        ------                ------
- *         EXP1                  EXP2
+/**       ------                        ------
+ *    NC | 1  2 | GND               5V | 1  2 | GND
+ * RESET | 3  4 | 1.31            1.23 | 3  4 | 1.22
+ *  0.18 | 5  6   3.25            1.21 | 5  6   1.20
+ *  0.16 | 7  8 | 3.26            1.19 | 7  8 | 1.18
+ *  0.15 | 9  10| 0.17            0.28 | 9  10| 1.30
+ *        ------                        ------
+ *         EXP2                          EXP1
  */
+
 #define EXP1_03_PIN                        P1_23
 #define EXP1_04_PIN                        P1_22
 #define EXP1_05_PIN                        P1_21
@@ -263,7 +258,7 @@
 #define EXP1_09_PIN                        P0_28
 #define EXP1_10_PIN                        P1_30
 
-#define EXP2_03_PIN                        -1     // RESET
+#define EXP2_03_PIN                        -1
 #define EXP2_04_PIN                        P1_31
 #define EXP2_05_PIN                        P0_18
 #define EXP2_06_PIN                        P3_25
@@ -272,7 +267,7 @@
 #define EXP2_09_PIN                        P0_15
 #define EXP2_10_PIN                        P0_17
 
-#if EITHER(HAS_DWIN_E3V2, IS_DWIN_MARLINUI)
+#if EITHER(DWIN_CREALITY_LCD, IS_DWIN_MARLINUI)
 
   // RET6 DWIN ENCODER LCD
   #define BTN_ENC                    EXP1_06_PIN
@@ -283,7 +278,7 @@
     #define BEEPER_PIN               EXP1_05_PIN
   #endif
 
-#elif HAS_WIRED_LCD
+#elif HAS_WIRED_LCD && !BTT_MOTOR_EXPANSION
 
   #if ENABLED(ANET_FULL_GRAPHICS_LCD_ALT_WIRING)
     #error "CAUTION! ANET_FULL_GRAPHICS_LCD_ALT_WIRING requires wiring modifications. See 'pins_BTT_SKR_V1_4.h' for details. Comment out this line to continue."
@@ -298,11 +293,11 @@
      *
      *                BEFORE                     AFTER
      *                ------                     ------
-     *      (BEEPER) | 10 9 | (CLK)    (BEEPER) | 10 9 | (CLK)
-     *     (BTN_ENC) | 8  7 | --      (BTN_ENC) | 8  7 | --
-     *     (BTN_EN1)   6  5 | (SID)   (BTN_EN1)   6  5 | (SID)
-     *     (BTN_EN2) | 4  3 | (CS)    (BTN_EN2) | 4  3 | (CS)
-     *            5V | 2  1 | GND           GND | 2  1 | 5V
+     *           GND | 1  2 | 5V             5V | 1  2 | GND
+     *            CS | 3  4 | BTN_EN2        CS | 3  4 | BTN_EN2
+     *           SID | 5  6   BTN_EN1       SID | 5  6   BTN_EN1
+     *          open | 7  8 | BTN_ENC      open | 7  8 | BTN_ENC
+     *           CLK | 9  10| BEEPER        CLK | 9  10| BEEPER
      *                ------                     ------
      *                 LCD                        LCD
      */
@@ -323,22 +318,22 @@
    /**
     * 1. Cut the tab off the LCD connector so it can be plugged into the "EXP1" connector the other way.
     * 2. Swap the LCD's +5V (Pin2) and GND (Pin1) wires. (This is the critical part!)
-    * 3. Rewire the CLK Signal (LCD Pin9) to LCD Pin7. (LCD Pin9 remains open because it is open drain.)
+    * 3. Rewire the CLK Signal (LCD Pin9) to LCD Pin7. (LCD Pin9 remains open because this pin is open drain.)
     * 4. A wire is needed to connect the Reset switch at J3 (LCD Pin7) to EXP2 (Pin3) on the board.
     *
     * !!! If you are unsure, ask for help! Your motherboard may be damaged in some circumstances !!!
     *
     * The ANET_FULL_GRAPHICS_LCD connector plug:
     *
-    *            BEFORE                     AFTER
-    *            ------                     ------
-    *  (BEEPER) |10  9 | (CLK)    (BEEPER) |10  9 | --
-    * (BTN_ENC) | 8  7 | --      (BTN_ENC) | 8  7 | (CLK)
-    * (BTN_EN1)   6  5 | (SID)   (BTN_EN1)   6  5 | (SID)
-    * (BTN_EN2) | 4  3 | (CS)    (BTN_EN2) | 4  3 | (CS)
-    *        5V | 2  1 | GND           GND | 2  1 | 5V
-    *            ------                     ------
-    *             LCD                        LCD
+    *         BEFORE                     AFTER
+    *         ------                     ------
+    *    GND | 1  2 | 5V             5V | 1  2 | GND
+    *     CS | 3  4 | BTN_EN2        CS | 3  4 | BTN_EN2
+    *    SID | 5  6   BTN_EN1       SID | 5  6   BTN_EN1
+    *   open | 7  8 | BTN_ENC       CLK | 7  8 | BTN_ENC
+    *    CLK | 9 10 | BEEPER       open | 9 10 | BEEPER
+    *         ------                     ------
+    *          LCD                        LCD
     */
 
     #define LCD_PINS_RS              EXP1_03_PIN
@@ -366,11 +361,11 @@
 
     /** Creality Ender-2 display pinout
      *                   ------
-     *   (SCK)     1.30 |10  9 | 0.28 (BTN_ENC)
-     *   (BTN_EN1) 1.18 | 8  7 | 1.19 (RESET)
-     *   (BTN_EN2) 1.20   6  5 | 1.21 (LCD_A0)
-     *   (LCD_RS)  1.22 | 4  3 | 1.23 (MOSI)
-     *              GND | 2  1 | 5V
+     *               5V | 1  2 | GND
+     *      (MOSI) 1.23 | 3  4 | 1.22 (LCD_RS)
+     *    (LCD_A0) 1.21 | 5  6   1.20 (BTN_EN2)
+     *       RESET 1.19 | 7  8 | 1.18 (BTN_EN1)
+     *   (BTN_ENC) 0.28 | 9 10 | 1.30  (SCK)
      *                   ------
      *                    EXP1
      */

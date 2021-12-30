@@ -49,10 +49,6 @@
 #include "ili9341.h"
 #include "ili9328.h"
 
-#if HAS_LCD_BRIGHTNESS
-  #include "../marlinui.h"
-#endif
-
 #define DEBUG_OUT ENABLED(DEBUG_GRAPHICAL_TFT)
 #include "../../core/debug_out.h"
 
@@ -76,9 +72,6 @@ if (lcd_id != 0xFFFFFFFF) return;
 
   #if PIN_EXISTS(TFT_BACKLIGHT)
     WRITE(TFT_BACKLIGHT_PIN, DISABLED(DELAYED_BACKLIGHT_INIT));
-    #if HAS_LCD_BRIGHTNESS && DISABLED(DELAYED_BACKLIGHT_INIT)
-      ui._set_brightness();
-    #endif
   #endif
 
   // io.Init();
@@ -104,6 +97,10 @@ if (lcd_id != 0xFFFFFFFF) return;
     write_esc_sequence(ili9341_init);
   #elif TFT_DRIVER == ILI9488
     write_esc_sequence(ili9488_init);
+  #elif TFT_DRIVER == LERDGE_ST7796
+    lcd_id = ST7796;
+    write_esc_sequence(lerdge_st7796s_init);
+
   #elif TFT_DRIVER == AUTO // autodetect
 
     lcd_id = io.GetID() & 0xFFFF;
@@ -148,11 +145,11 @@ if (lcd_id != 0xFFFFFFFF) return;
         lcd_id = 0;
     }
   #else
-    #error "Unsupported TFT driver"
+    #error Unsupported TFT driver
   #endif
 
   #if PIN_EXISTS(TFT_BACKLIGHT) && ENABLED(DELAYED_BACKLIGHT_INIT)
-    TERN(HAS_LCD_BRIGHTNESS, ui._set_brightness(), WRITE(TFT_BACKLIGHT_PIN, HIGH));
+    WRITE(TFT_BACKLIGHT_PIN, HIGH);
   #endif
 }
 

@@ -31,7 +31,7 @@
 #include "../../module/stepper.h"
 #include "../../module/planner.h"
 #include "../../module/probe.h"
-#include "../../lcd/marlinui.h" // for LCD_MESSAGE
+#include "../../lcd/marlinui.h" // for LCD_MESSAGEPGM
 
 #if HAS_LEVELING
   #include "../../feature/bedlevel/bedlevel.h"
@@ -43,10 +43,6 @@
 
 #if ENABLED(Z_STEPPER_ALIGN_KNOWN_STEPPER_POSITIONS)
   #include "../../libs/least_squares_fit.h"
-#endif
-
-#if ENABLED(BLTOUCH)
-  #include "../../feature/bltouch.h"
 #endif
 
 #define DEBUG_OUT ENABLED(DEBUG_LEVELING_FEATURE)
@@ -153,7 +149,7 @@ void GcodeSuite::G34() {
       // In BLTOUCH HS mode, the probe travels in a deployed state.
       // Users of G34 might have a badly misaligned bed, so raise Z by the
       // length of the deployed pin (BLTOUCH stroke < 7mm)
-      #define Z_BASIC_CLEARANCE (Z_CLEARANCE_BETWEEN_PROBES + TERN0(BLTOUCH, bltouch.z_extra_clearance()))
+      #define Z_BASIC_CLEARANCE (Z_CLEARANCE_BETWEEN_PROBES + 7.0f * BOTH(BLTOUCH, BLTOUCH_HS_MODE))
 
       // Compute a worst-case clearance height to probe from. After the first
       // iteration this will be re-calculated based on the actual bed position
@@ -205,7 +201,7 @@ void GcodeSuite::G34() {
         if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("> probing all positions.");
 
         const int iter = iteration + 1;
-        SERIAL_ECHOLNPGM("\nG34 Iteration: ", iter);
+        SERIAL_ECHOLNPAIR("\nG34 Iteration: ", iter);
         #if HAS_STATUS_MESSAGE
           char str[iter_str_len + 2 + 1];
           sprintf_P(str, msg_iteration, iter);
@@ -225,7 +221,7 @@ void GcodeSuite::G34() {
           if ((iteration == 0 || i > 0) && z_probe > current_position.z) do_blocking_move_to_z(z_probe);
 
           if (DEBUGGING(LEVELING))
-            DEBUG_ECHOLNPGM_P(PSTR("Probing X"), z_stepper_align.xy[iprobe].x, SP_Y_STR, z_stepper_align.xy[iprobe].y);
+            DEBUG_ECHOLNPAIR_P(PSTR("Probing X"), z_stepper_align.xy[iprobe].x, SP_Y_STR, z_stepper_align.xy[iprobe].y);
 
           // Probe a Z height for each stepper.
           // Probing sanity check is disabled, as it would trigger even in normal cases because
@@ -233,7 +229,7 @@ void GcodeSuite::G34() {
           const float z_probed_height = probe.probe_at_point(z_stepper_align.xy[iprobe], raise_after, 0, true, false);
           if (isnan(z_probed_height)) {
             SERIAL_ECHOLNPGM("Probing failed");
-            LCD_MESSAGE(MSG_LCD_PROBING_FAILED);
+            LCD_MESSAGEPGM(MSG_LCD_PROBING_FAILED);
             err_break = true;
             break;
           }
@@ -242,7 +238,7 @@ void GcodeSuite::G34() {
           // the next iteration of probing. This allows adjustments to be made away from the bed.
           z_measured[iprobe] = z_probed_height + Z_CLEARANCE_BETWEEN_PROBES;
 
-          if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("> Z", iprobe + 1, " measured position is ", z_measured[iprobe]);
+          if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPAIR("> Z", iprobe + 1, " measured position is ", z_measured[iprobe]);
 
           // Remember the minimum measurement to calculate the correction later on
           z_measured_min = _MIN(z_measured_min, z_measured[iprobe]);
@@ -271,7 +267,7 @@ void GcodeSuite::G34() {
           linear_fit_data lfd;
           incremental_LSF_reset(&lfd);
           LOOP_L_N(i, NUM_Z_STEPPER_DRIVERS) {
-            SERIAL_ECHOLNPGM("PROBEPT_", i, ": ", z_measured[i]);
+            SERIAL_ECHOLNPAIR("PROBEPT_", i, ": ", z_measured[i]);
             incremental_LSF(&lfd, z_stepper_align.xy[i], z_measured[i]);
           }
           finish_incremental_LSF(&lfd);
@@ -282,7 +278,7 @@ void GcodeSuite::G34() {
             z_measured_min = _MIN(z_measured_min, z_measured[i]);
           }
 
-          SERIAL_ECHOLNPGM(
+          SERIAL_ECHOLNPAIR(
             LIST_N(DOUBLE(NUM_Z_STEPPER_DRIVERS),
               "Calculated Z1=", z_measured[0],
                         " Z2=", z_measured[1],
@@ -292,7 +288,7 @@ void GcodeSuite::G34() {
           );
         #endif
 
-        SERIAL_ECHOLNPGM("\n"
+        SERIAL_ECHOLNPAIR("\n"
           "Z2-Z1=", ABS(z_measured[1] - z_measured[0])
           #if TRIPLE_Z
             , " Z3-Z2=", ABS(z_measured[2] - z_measured[1])
@@ -332,7 +328,7 @@ void GcodeSuite::G34() {
         auto decreasing_accuracy = [](const_float_t v1, const_float_t v2) {
           if (v1 < v2 * 0.7f) {
             SERIAL_ECHOLNPGM("Decreasing Accuracy Detected.");
-            LCD_MESSAGE(MSG_DECREASING_ACCURACY);
+            LCD_MESSAGEPGM(MSG_DECREASING_ACCURACY);
             return true;
           }
           return false;
@@ -376,8 +372,8 @@ void GcodeSuite::G34() {
 
             // Check for less accuracy compared to last move
             if (decreasing_accuracy(last_z_align_move[zstepper], z_align_abs)) {
-              if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("> Z", zstepper + 1, " last_z_align_move = ", last_z_align_move[zstepper]);
-              if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("> Z", zstepper + 1, " z_align_abs = ", z_align_abs);
+              if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPAIR("> Z", zstepper + 1, " last_z_align_move = ", last_z_align_move[zstepper]);
+              if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPAIR("> Z", zstepper + 1, " z_align_abs = ", z_align_abs);
               adjustment_reverse = !adjustment_reverse;
             }
 
@@ -389,7 +385,7 @@ void GcodeSuite::G34() {
           // Stop early if all measured points achieve accuracy target
           if (z_align_abs > z_auto_align_accuracy) success_break = false;
 
-          if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("> Z", zstepper + 1, " corrected by ", z_align_move);
+          if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPAIR("> Z", zstepper + 1, " corrected by ", z_align_move);
 
           // Lock all steppers except one
           stepper.set_all_z_lock(true, zstepper);
@@ -399,7 +395,7 @@ void GcodeSuite::G34() {
             // Will match reversed Z steppers on dual steppers. Triple will need more work to map.
             if (adjustment_reverse) {
               z_align_move = -z_align_move;
-              if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPGM("> Z", zstepper + 1, " correction reversed to ", z_align_move);
+              if (DEBUGGING(LEVELING)) DEBUG_ECHOLNPAIR("> Z", zstepper + 1, " correction reversed to ", z_align_move);
             }
           #endif
 
@@ -415,7 +411,7 @@ void GcodeSuite::G34() {
 
         if (success_break) {
           SERIAL_ECHOLNPGM("Target accuracy achieved.");
-          LCD_MESSAGE(MSG_ACCURACY_ACHIEVED);
+          LCD_MESSAGEPGM(MSG_ACCURACY_ACHIEVED);
           break;
         }
 
@@ -425,7 +421,7 @@ void GcodeSuite::G34() {
       if (err_break)
         SERIAL_ECHOLNPGM("G34 aborted.");
       else {
-        SERIAL_ECHOLNPGM("Did ", iteration + (iteration != z_auto_align_iterations), " of ", z_auto_align_iterations);
+        SERIAL_ECHOLNPAIR("Did ", iteration + (iteration != z_auto_align_iterations), " of ", z_auto_align_iterations);
         SERIAL_ECHOLNPAIR_F("Accuracy: ", z_maxdiff);
       }
 
@@ -437,7 +433,7 @@ void GcodeSuite::G34() {
         // After this operation the z position needs correction
         set_axis_never_homed(Z_AXIS);
         // Home Z after the alignment procedure
-        process_subcommands_now(F("G28Z"));
+        process_subcommands_now_P(PSTR("G28Z"));
       #else
         // Use the probed height from the last iteration to determine the Z height.
         // z_measured_min is used, because all steppers are aligned to z_measured_min.
@@ -479,10 +475,18 @@ void GcodeSuite::G34() {
  */
 void GcodeSuite::M422() {
 
-  if (!parser.seen_any()) return M422_report();
-
   if (parser.seen('R')) {
     z_stepper_align.reset_to_default();
+    return;
+  }
+
+  if (!parser.seen_any()) {
+    LOOP_L_N(i, NUM_Z_STEPPER_DRIVERS)
+      SERIAL_ECHOLNPAIR_P(PSTR("M422 S"), i + 1, SP_X_STR, z_stepper_align.xy[i].x, SP_Y_STR, z_stepper_align.xy[i].y);
+    #if ENABLED(Z_STEPPER_ALIGN_KNOWN_STEPPER_POSITIONS)
+      LOOP_L_N(i, NUM_Z_STEPPER_DRIVERS)
+        SERIAL_ECHOLNPAIR_P(PSTR("M422 W"), i + 1, SP_X_STR, z_stepper_align.stepper_xy[i].x, SP_Y_STR, z_stepper_align.stepper_xy[i].y);
+    #endif
     return;
   }
 
@@ -539,28 +543,6 @@ void GcodeSuite::M422() {
   }
 
   pos_dest[position_index] = pos;
-}
-
-void GcodeSuite::M422_report(const bool forReplay/*=true*/) {
-  report_heading(forReplay, F(STR_Z_AUTO_ALIGN));
-  LOOP_L_N(i, NUM_Z_STEPPER_DRIVERS) {
-    report_echo_start(forReplay);
-    SERIAL_ECHOLNPGM_P(
-      PSTR("  M422 S"), i + 1,
-      SP_X_STR, z_stepper_align.xy[i].x,
-      SP_Y_STR, z_stepper_align.xy[i].y
-    );
-  }
-  #if ENABLED(Z_STEPPER_ALIGN_KNOWN_STEPPER_POSITIONS)
-    LOOP_L_N(i, NUM_Z_STEPPER_DRIVERS) {
-      report_echo_start(forReplay);
-      SERIAL_ECHOLNPGM_P(
-        PSTR("  M422 W"), i + 1,
-        SP_X_STR, z_stepper_align.stepper_xy[i].x,
-        SP_Y_STR, z_stepper_align.stepper_xy[i].y
-      );
-    }
-  #endif
 }
 
 #endif // Z_STEPPER_AUTO_ALIGN

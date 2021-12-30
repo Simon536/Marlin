@@ -22,7 +22,7 @@
 
 #include "../../inc/MarlinConfig.h"
 
-#if HAS_PREHEAT
+#if PREHEAT_COUNT
 
 #include "../gcode.h"
 #include "../../lcd/marlinui.h"
@@ -60,23 +60,4 @@ void GcodeSuite::M145() {
   }
 }
 
-void GcodeSuite::M145_report(const bool forReplay/*=true*/) {
-  report_heading(forReplay, F(STR_MATERIAL_HEATUP));
-  LOOP_L_N(i, PREHEAT_COUNT) {
-    report_echo_start(forReplay);
-    SERIAL_ECHOLNPGM_P(
-      PSTR("  M145 S"), i
-      #if HAS_HOTEND
-        , PSTR(" H"), parser.to_temp_units(ui.material_preset[i].hotend_temp)
-      #endif
-      #if HAS_HEATED_BED
-        , SP_B_STR, parser.to_temp_units(ui.material_preset[i].bed_temp)
-      #endif
-      #if HAS_FAN
-        , PSTR(" F"), ui.material_preset[i].fan_speed
-      #endif
-    );
-  }
-}
-
-#endif // HAS_PREHEAT
+#endif // PREHEAT_COUNT

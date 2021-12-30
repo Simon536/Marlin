@@ -25,7 +25,7 @@
 #define FTDI_BED_MESH_VIEW_SCREEN_CLASS BedMeshViewScreen
 
 struct BedMeshViewScreenData {
-  FSTR_P message;
+  progmem_str message;
   uint8_t count;
   xy_uint8_t highlight;
 };
@@ -43,5 +43,6 @@ class BedMeshViewScreen : public BedMeshBase, public CachedScreen<BED_MESH_VIEW_
     static bool onTouchEnd(uint8_t tag);
 
     static void doProbe();
+    static void doMeshValidation();
     static void show();
 };

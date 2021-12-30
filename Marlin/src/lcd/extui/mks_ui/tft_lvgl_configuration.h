@@ -27,7 +27,7 @@
  */
 
 #ifdef __cplusplus
-  extern "C" {
+  extern "C" { /* C-declarations for C++ */
 #endif
 
 #include <lvgl.h>

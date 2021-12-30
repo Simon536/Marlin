@@ -39,11 +39,13 @@
   #define FIL_RUNOUT2_PIN                     14
 #endif
 
-// Alter timing for graphical display
-#if IS_U8GLIB_ST7920
-  #define BOARD_ST7920_DELAY_1                 0
-  #define BOARD_ST7920_DELAY_2               250
-  #define BOARD_ST7920_DELAY_3               250
+//
+// LCD delays
+//
+#if HAS_MARLINUI_U8GLIB
+  #define BOARD_ST7920_DELAY_1 DELAY_NS(0)
+  #define BOARD_ST7920_DELAY_2 DELAY_NS(250)
+  #define BOARD_ST7920_DELAY_3 DELAY_NS(250)
 #endif
 
 //

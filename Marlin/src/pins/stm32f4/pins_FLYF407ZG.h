@@ -33,8 +33,8 @@
 #define DEFAULT_MACHINE_NAME BOARD_INFO_NAME
 
 // Avoid conflict with fans and TIMER_TONE
-#define TEMP_TIMER  3
-#define STEP_TIMER  5
+#define TEMP_TIMER                             3
+#define STEP_TIMER                             5
 
 //
 // EEPROM Emulation
@@ -181,10 +181,11 @@
  *  PE14 | 8  7 | PE12    PC5  | 8  7 | PF11
  *  PE10   6  5 | PE9     PC4    6  5 | PB15
  *  PE8  | 4  3 | PE7     PB2  | 4  3 | RESET
- *   GND | 2  1 | 5V       GND | 2  1 | --
+ *  GND  | 2  1 | 5V      GND  | 2  1 | NC
  *        ------                ------
  *         EXP1                  EXP2
  */
+
 #define EXP1_03_PIN                         PE7
 #define EXP1_04_PIN                         PE8
 #define EXP1_05_PIN                         PE9
@@ -304,9 +305,17 @@
 
 #define FIL_RUNOUT_PIN                      PA3
 
-// Alter timing for graphical display
-#if IS_U8GLIB_ST7920
-  #define BOARD_ST7920_DELAY_1                96
-  #define BOARD_ST7920_DELAY_2                48
-  #define BOARD_ST7920_DELAY_3               715
+//
+// ST7920 Delays
+//
+#if HAS_MARLINUI_U8GLIB
+  #ifndef BOARD_ST7920_DELAY_1
+    #define BOARD_ST7920_DELAY_1    DELAY_NS(96)
+  #endif
+  #ifndef BOARD_ST7920_DELAY_2
+    #define BOARD_ST7920_DELAY_2    DELAY_NS(48)
+  #endif
+  #ifndef BOARD_ST7920_DELAY_3
+    #define BOARD_ST7920_DELAY_3   DELAY_NS(715)
+  #endif
 #endif

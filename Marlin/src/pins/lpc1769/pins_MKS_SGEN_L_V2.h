@@ -22,15 +22,13 @@
 #pragma once
 
 /**
- * MKS SGen-L V2 pin assignments
+ * MKS SGen pin assignments
  */
 
 #include "env_validate.h"
 
 #define BOARD_INFO_NAME   "MKS SGEN_L V2"
 #define BOARD_WEBSITE_URL "github.com/makerbase-mks"
-
-#define USES_DIAG_JUMPERS
 
 //
 // EEPROM, MKS SGEN_L V2.0 hardware has 4K EEPROM on the board
@@ -257,14 +255,15 @@
   #define LED4_PIN                         P1_21
 #endif
 
-/**                ------                                     ------
- *  (BEEPER) 1.31 |10  9 | 1.30 (BTN_ENC)        (MISO) 0.8  |10  9 | 0.7  (SD_SCK)
- *  (LCD_EN) 0.18 | 8  7 | 0.16 (LCD_RS)      (BTN_EN1) 3.25 | 8  7 | 0.28 (SD_CS2)
- *  (LCD_D4) 0.15   6  5 | 0.17 (LCD_D5)      (BTN_EN2) 3.26   6  5 | 0.9  (SD_MOSI)
- *  (LCD_D6)  1.0 | 4  3 | 1.22 (LCD_D7)    (SD_DETECT) 0.27 | 4  3 | RST
- *            GND | 2  1 | 5V                            GND | 2  1 | --
- *                 ------                                     ------
- *                  EXP1                                       EXP2
+/**
+ *                -----                                            -----
+ * (BEEPER) 1.31 | · · | 1.30 (BTN_ENC)               (MISO) 0.8  | · · | 0.7  (SD_SCK)
+ * (LCD_EN) 0.18 | · · | 0.16 (LCD_RS)             (BTN_EN1) 3.25 | · · | 0.28 (SD_CS2)
+ * (LCD_D4) 0.15 | · · | 0.17 (LCD_D5)             (BTN_EN2) 3.26 | · · | 0.9  (SD_MOSI)
+ * (LCD_D6)  1.0 | · · | 1.22 (LCD_D7)           (SD_DETECT) 0.27 | · · | RST
+ *           GND | · · | 5V                                   GND | · · | NC
+ *                -----                                            -----
+ *                EXP1                                             EXP2
  */
 #define EXP1_03_PIN                        P1_22
 #define EXP1_04_PIN                        P1_00

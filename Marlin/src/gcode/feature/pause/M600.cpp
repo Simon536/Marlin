@@ -34,11 +34,8 @@
   #include "../../../module/tool_change.h"
 #endif
 
-#if ENABLED(HAS_PRUSA_MMU2)
-  #include "../../../feature/mmu/mmu2.h"
-  #if ENABLED(MMU2_MENUS)
-    #include "../../../lcd/menu/menu_mmu2.h"
-  #endif
+#if ENABLED(MMU2_MENUS)
+  #include "../../../lcd/menu/menu_mmu2.h"
 #endif
 
 #if ENABLED(MIXING_EXTRUDER)
@@ -67,13 +64,13 @@
 void GcodeSuite::M600() {
 
   #if ENABLED(MIXING_EXTRUDER)
-    const int8_t eindex = get_target_e_stepper_from_command();
-    if (eindex < 0) return;
+    const int8_t target_e_stepper = get_target_e_stepper_from_command();
+    if (target_e_stepper < 0) return;
 
     const uint8_t old_mixing_tool = mixer.get_current_vtool();
     mixer.T(MIXER_DIRECT_SET_TOOL);
 
-    MIXER_STEPPER_LOOP(i) mixer.set_collector(i, i == uint8_t(eindex) ? 1.0 : 0.0);
+    MIXER_STEPPER_LOOP(i) mixer.set_collector(i, i == uint8_t(target_e_stepper) ? 1.0 : 0.0);
     mixer.normalize();
 
     const int8_t target_extruder = active_extruder;
@@ -95,11 +92,10 @@ void GcodeSuite::M600() {
     }
   #endif
 
-  const bool standardM600 = TERN1(MMU2_MENUS, !mmu2.enabled());
-
   // Show initial "wait for start" message
-  if (standardM600)
+  #if DISABLED(MMU2_MENUS)
     ui.pause_show_message(PAUSE_MESSAGE_CHANGING, PAUSE_MODE_PAUSE_PRINT, target_extruder);
+  #endif
 
   #if ENABLED(HOME_BEFORE_FILAMENT_CHANGE)
     // If needed, home before parking for filament change
@@ -110,7 +106,7 @@ void GcodeSuite::M600() {
     // Change toolhead if specified
     const uint8_t active_extruder_before_filament_change = active_extruder;
     if (active_extruder != target_extruder && TERN1(DUAL_X_CARRIAGE, !idex_is_duplicating()))
-      tool_change(target_extruder);
+      tool_change(target_extruder, false);
   #endif
 
   // Initial retract before move to filament change position
@@ -130,11 +126,17 @@ void GcodeSuite::M600() {
   #endif
 
   #if ENABLED(MMU2_MENUS)
-    // For MMU2, when enabled, reset retract value so it doesn't mess with MMU filament handling
-    const float unload_length = standardM600 ? -ABS(parser.axisunitsval('U', E_AXIS, fc_settings[active_extruder].unload_length)) : 0.5f;
+    // For MMU2 reset retract and load/unload values so they don't mess with MMU filament handling
+    constexpr float unload_length = 0.5f,
+                    slow_load_length = 0.0f,
+                    fast_load_length = 0.0f;
   #else
     // Unload filament
     const float unload_length = -ABS(parser.axisunitsval('U', E_AXIS, fc_settings[active_extruder].unload_length));
+    // Slow load filament
+    constexpr float slow_load_length = FILAMENT_CHANGE_SLOW_LOAD_LENGTH;
+    // Fast load filament
+    const float fast_load_length = ABS(parser.axisunitsval('L', E_AXIS, fc_settings[active_extruder].load_length));
   #endif
 
   const int beep_count = parser.intval('B', -1
@@ -144,29 +146,20 @@ void GcodeSuite::M600() {
   );
 
   if (pause_print(retract, park_point, true, unload_length DXC_PASS)) {
-    if (standardM600) {
+    #if ENABLED(MMU2_MENUS)
+      mmu2_M600();
+      resume_print(slow_load_length, fast_load_length, 0, beep_count DXC_PASS);
+    #else
       wait_for_confirmation(true, beep_count DXC_PASS);
-      resume_print(
-        FILAMENT_CHANGE_SLOW_LOAD_LENGTH,
-        ABS(parser.axisunitsval('L', E_AXIS, fc_settings[active_extruder].load_length)),
-        ADVANCED_PAUSE_PURGE_LENGTH,
-        beep_count,
-        parser.celsiusval('R')
-        DXC_PASS
-      );
-    }
-    else {
-      #if ENABLED(MMU2_MENUS)
-        mmu2_M600();
-        resume_print(0, 0, 0, beep_count, 0 DXC_PASS);
-      #endif
-    }
+      resume_print(slow_load_length, fast_load_length, ADVANCED_PAUSE_PURGE_LENGTH,
+                   beep_count, (parser.seenval('R') ? parser.value_celsius() : 0) DXC_PASS);
+    #endif
   }
 
   #if HAS_MULTI_EXTRUDER
     // Restore toolhead if it was changed
     if (active_extruder_before_filament_change != active_extruder)
-      tool_change(active_extruder_before_filament_change);
+      tool_change(active_extruder_before_filament_change, false);
   #endif
 
   TERN_(MIXING_EXTRUDER, mixer.T(old_mixing_tool)); // Restore original mixing tool

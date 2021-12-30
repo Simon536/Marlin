@@ -38,10 +38,8 @@
 #define BOARD_INFO_NAME      "Arm'ed"
 #define DEFAULT_MACHINE_NAME BOARD_INFO_NAME
 
-#if NO_EEPROM_SELECTED
-  #define I2C_EEPROM
-  #define MARLIN_EEPROM_SIZE              0x1000  // 4KB
-#endif
+#define I2C_EEPROM
+#define MARLIN_EEPROM_SIZE                0x1000  // 4KB
 
 //
 // Limit Switches

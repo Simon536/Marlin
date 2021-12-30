@@ -19,7 +19,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  */
-
 #include "../platforms.h"
 
 #if defined(HAL_STM32) && !defined(STM32H7xx)
@@ -114,19 +113,16 @@ byte MarlinSPI::transfer(uint8_t _data) {
   return rxData;
 }
 
-__STATIC_INLINE void LL_SPI_EnableDMAReq_RX(SPI_TypeDef *SPIx) { SET_BIT(SPIx->CR2, SPI_CR2_RXDMAEN); }
-__STATIC_INLINE void LL_SPI_EnableDMAReq_TX(SPI_TypeDef *SPIx) { SET_BIT(SPIx->CR2, SPI_CR2_TXDMAEN); }
-
 uint8_t MarlinSPI::dmaTransfer(const void *transmitBuf, void *receiveBuf, uint16_t length) {
   const uint8_t ff = 0xFF;
 
-  //if (!LL_SPI_IsEnabled(_spi.handle)) // only enable if disabled
+  //if ((hspi->Instance->CR1 & SPI_CR1_SPE) != SPI_CR1_SPE) //only enable if disabled
   __HAL_SPI_ENABLE(&_spi.handle);
 
   if (receiveBuf) {
     setupDma(_spi.handle, _dmaRx, DMA_PERIPH_TO_MEMORY, true);
     HAL_DMA_Start(&_dmaRx, (uint32_t)&(_spi.handle.Instance->DR), (uint32_t)receiveBuf, length);
-    LL_SPI_EnableDMAReq_RX(_spi.handle.Instance); // Enable Rx DMA Request
+    SET_BIT(_spi.handle.Instance->CR2, SPI_CR2_RXDMAEN); /* Enable Rx DMA Request */
   }
 
   // check for 2 lines transfer
@@ -139,7 +135,7 @@ uint8_t MarlinSPI::dmaTransfer(const void *transmitBuf, void *receiveBuf, uint16
   if (transmitBuf) {
     setupDma(_spi.handle, _dmaTx, DMA_MEMORY_TO_PERIPH, mincTransmit);
     HAL_DMA_Start(&_dmaTx, (uint32_t)transmitBuf, (uint32_t)&(_spi.handle.Instance->DR), length);
-    LL_SPI_EnableDMAReq_TX(_spi.handle.Instance); // Enable Tx DMA Request
+    SET_BIT(_spi.handle.Instance->CR2, SPI_CR2_TXDMAEN);   /* Enable Tx DMA Request */
   }
 
   if (transmitBuf) {
@@ -163,7 +159,7 @@ uint8_t MarlinSPI::dmaSend(const void * transmitBuf, uint16_t length, bool minc)
   setupDma(_spi.handle, _dmaTx, DMA_MEMORY_TO_PERIPH, minc);
   HAL_DMA_Start(&_dmaTx, (uint32_t)transmitBuf, (uint32_t)&(_spi.handle.Instance->DR), length);
   __HAL_SPI_ENABLE(&_spi.handle);
-  LL_SPI_EnableDMAReq_TX(_spi.handle.Instance); // Enable Tx DMA Request
+  SET_BIT(_spi.handle.Instance->CR2, SPI_CR2_TXDMAEN);   /* Enable Tx DMA Request */
   HAL_DMA_PollForTransfer(&_dmaTx, HAL_DMA_FULL_TRANSFER, HAL_MAX_DELAY);
   HAL_DMA_Abort(&_dmaTx);
   // DeInit objects

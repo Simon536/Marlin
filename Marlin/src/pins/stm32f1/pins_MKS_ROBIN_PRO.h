@@ -237,7 +237,7 @@
   #define TFT_CS_PIN                 FSMC_CS_PIN
   #define TFT_RS_PIN                 FSMC_RS_PIN
 
-  #define LCD_RESET_PIN                     PC6
+  #define LCD_RESET_PIN                     PF6
   #define LCD_BACKLIGHT_PIN                 PD13
 
   #define TFT_BUFFER_SIZE                  14400
@@ -299,11 +299,16 @@
 
 #endif
 
-// Alter timing for graphical display
-#if IS_U8GLIB_ST7920
-  #define BOARD_ST7920_DELAY_1               125
-  #define BOARD_ST7920_DELAY_2               125
-  #define BOARD_ST7920_DELAY_3               125
+#if HAS_MARLINUI_U8GLIB
+  #ifndef BOARD_ST7920_DELAY_1
+    #define BOARD_ST7920_DELAY_1   DELAY_NS(125)
+  #endif
+  #ifndef BOARD_ST7920_DELAY_2
+    #define BOARD_ST7920_DELAY_2   DELAY_NS(125)
+  #endif
+  #ifndef BOARD_ST7920_DELAY_3
+    #define BOARD_ST7920_DELAY_3   DELAY_NS(125)
+  #endif
 #endif
 
 #define HAS_SPI_FLASH                          1

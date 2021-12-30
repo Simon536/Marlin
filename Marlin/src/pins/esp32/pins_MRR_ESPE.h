@@ -23,8 +23,7 @@
 
 /**
  * MRR ESPE pin assignments
- *
- * 3D printer control board based on the ESP32 microcontroller.
+ * MRR ESPE is a 3D printer control board based on the ESP32 microcontroller.
  * Supports 5 stepper drivers (using I2S stepper stream), heated bed,
  * single hotend, and LCD controller.
  */
@@ -33,7 +32,7 @@
 
 #if EXTRUDERS > 2 || E_STEPPERS > 2
   #error "MRR ESPE only supports two E Steppers. Comment out this line to continue."
-#elif HAS_MULTI_HOTEND
+#elif HOTENDS > 1
   #error "MRR ESPE only supports one hotend / E-stepper. Comment out this line to continue."
 #endif
 
@@ -51,6 +50,7 @@
 //
 // Enable I2S stepper stream
 //
+#undef I2S_STEPPER_STREAM
 #define I2S_STEPPER_STREAM
 #define I2S_WS                                26
 #define I2S_BCK                               25
@@ -122,7 +122,7 @@
 // LCDs and Controllers //
 //////////////////////////
 
-#if HAS_WIRED_LCD
+#if HAS_MARLINUI_U8GLIB
 
   #define LCD_PINS_RS                         13
   #define LCD_PINS_ENABLE                     17

@@ -19,7 +19,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *
  */
-
 #include "../../../inc/MarlinConfigPre.h"
 
 #if HAS_TFT_LVGL_UI
@@ -55,7 +54,7 @@ static void event_handler(lv_obj_t *obj, lv_event_t event) {
   if (event != LV_EVENT_RELEASED) return;
   switch (obj->mks_obj_id) {
     case ID_E_ADD:
-      if (thermalManager.hotEnoughToExtrude(uiCfg.extruderIndex)) {
+      if (thermalManager.degHotend(uiCfg.extruderIndex) >= EXTRUDE_MINTEMP) {
         sprintf_P((char *)public_buf_l, PSTR("G91\nG1 E%d F%d\nG90"), uiCfg.extruStep, 60 * uiCfg.extruSpeed);
         queue.inject(public_buf_l);
         extrudeAmount += uiCfg.extruStep;
@@ -63,9 +62,9 @@ static void event_handler(lv_obj_t *obj, lv_event_t event) {
       }
       break;
     case ID_E_DEC:
-      if (thermalManager.hotEnoughToExtrude(uiCfg.extruderIndex)) {
+      if (thermalManager.degHotend(uiCfg.extruderIndex) >= EXTRUDE_MINTEMP) {
         sprintf_P((char *)public_buf_l, PSTR("G91\nG1 E%d F%d\nG90"), 0 - uiCfg.extruStep, 60 * uiCfg.extruSpeed);
-        queue.inject(public_buf_l);
+        queue.enqueue_one_now(public_buf_l);
         extrudeAmount -= uiCfg.extruStep;
         disp_extru_amount();
       }
@@ -74,11 +73,11 @@ static void event_handler(lv_obj_t *obj, lv_event_t event) {
       if (ENABLED(HAS_MULTI_EXTRUDER)) {
         if (uiCfg.extruderIndex == 0) {
           uiCfg.extruderIndex = 1;
-          queue.inject(F("T1"));
+          queue.inject_P(PSTR("T1"));
         }
         else {
           uiCfg.extruderIndex = 0;
-          queue.inject(F("T0"));
+          queue.inject_P(PSTR("T0"));
         }
       }
       else
@@ -90,23 +89,26 @@ static void event_handler(lv_obj_t *obj, lv_event_t event) {
       disp_extru_amount();
       break;
     case ID_E_STEP:
-      switch (uiCfg.extruStep) {
-        case uiCfg.eStepMin: uiCfg.extruStep = uiCfg.eStepMed; break;
-        case uiCfg.eStepMed: uiCfg.extruStep = uiCfg.eStepMax; break;
-        case uiCfg.eStepMax: uiCfg.extruStep = uiCfg.eStepMin; break;
+      switch (ABS(uiCfg.extruStep)) {
+        case  1: uiCfg.extruStep = 5; break;
+        case  5: uiCfg.extruStep = 10; break;
+        case 10: uiCfg.extruStep = 1; break;
+        default: break;
       }
       disp_ext_step();
       break;
     case ID_E_SPEED:
       switch (uiCfg.extruSpeed) {
-        case uiCfg.eSpeedL: uiCfg.extruSpeed = uiCfg.eSpeedN; break;
-        case uiCfg.eSpeedN: uiCfg.extruSpeed = uiCfg.eSpeedH; break;
-        case uiCfg.eSpeedH: uiCfg.extruSpeed = uiCfg.eSpeedL; break;
+        case  1: uiCfg.extruSpeed = 10; break;
+        case 10: uiCfg.extruSpeed = 20; break;
+        case 20: uiCfg.extruSpeed = 1; break;
+        default: break;
       }
       disp_ext_speed();
       break;
     case ID_E_RETURN:
-      goto_previous_ui();
+      clear_cur_ui();
+      draw_return_ui();
       break;
   }
 }
@@ -153,30 +155,41 @@ void lv_draw_extrusion() {
 void disp_ext_type() {
   if (uiCfg.extruderIndex == 1) {
     lv_imgbtn_set_src_both(buttonType, "F:/bmp_extru2.bin");
-    if (gCfgItems.multiple_language) lv_label_set_text(labelType, extrude_menu.ext2);
+    if (gCfgItems.multiple_language) {
+      lv_label_set_text(labelType, extrude_menu.ext2);
+      lv_obj_align(labelType, buttonType, LV_ALIGN_IN_BOTTOM_MID, 0, BUTTON_TEXT_Y_OFFSET);
+    }
   }
   else {
     lv_imgbtn_set_src_both(buttonType, "F:/bmp_extru1.bin");
-    if (gCfgItems.multiple_language) lv_label_set_text(labelType, extrude_menu.ext1);
+    if (gCfgItems.multiple_language) {
+      lv_label_set_text(labelType, extrude_menu.ext1);
+      lv_obj_align(labelType, buttonType, LV_ALIGN_IN_BOTTOM_MID, 0, BUTTON_TEXT_Y_OFFSET);
+    }
   }
-  if (gCfgItems.multiple_language)
-    lv_obj_align(labelType, buttonType, LV_ALIGN_IN_BOTTOM_MID, 0, BUTTON_TEXT_Y_OFFSET);
 }
 
 void disp_ext_speed() {
-  switch (uiCfg.extruSpeed) {
-    case uiCfg.eSpeedH: lv_imgbtn_set_src_both(buttonSpeed, "F:/bmp_speed_high.bin");   break;
-    case uiCfg.eSpeedL: lv_imgbtn_set_src_both(buttonSpeed, "F:/bmp_speed_slow.bin");   break;
-    case uiCfg.eSpeedN: lv_imgbtn_set_src_both(buttonSpeed, "F:/bmp_speed_normal.bin"); break;
-  }
+  if (uiCfg.extruSpeed == 20)
+    lv_imgbtn_set_src_both(buttonSpeed, "F:/bmp_speed_high.bin");
+  else if (uiCfg.extruSpeed == 1)
+    lv_imgbtn_set_src_both(buttonSpeed, "F:/bmp_speed_slow.bin");
+  else
+    lv_imgbtn_set_src_both(buttonSpeed, "F:/bmp_speed_normal.bin");
 
   if (gCfgItems.multiple_language) {
-    switch (uiCfg.extruSpeed) {
-      case uiCfg.eSpeedH: lv_label_set_text(labelSpeed, extrude_menu.high);   break;
-      case uiCfg.eSpeedL: lv_label_set_text(labelSpeed, extrude_menu.low);    break;
-      case uiCfg.eSpeedN: lv_label_set_text(labelSpeed, extrude_menu.normal); break;
+    if (uiCfg.extruSpeed == 20) {
+      lv_label_set_text(labelSpeed, extrude_menu.high);
+      lv_obj_align(labelSpeed, buttonSpeed, LV_ALIGN_IN_BOTTOM_MID, 0, BUTTON_TEXT_Y_OFFSET);
     }
-    lv_obj_align(labelSpeed, buttonSpeed, LV_ALIGN_IN_BOTTOM_MID, 0, BUTTON_TEXT_Y_OFFSET);
+    else if (uiCfg.extruSpeed == 1) {
+      lv_label_set_text(labelSpeed, extrude_menu.low);
+      lv_obj_align(labelSpeed, buttonSpeed, LV_ALIGN_IN_BOTTOM_MID, 0, BUTTON_TEXT_Y_OFFSET);
+    }
+    else {
+      lv_label_set_text(labelSpeed, extrude_menu.normal);
+      lv_obj_align(labelSpeed, buttonSpeed, LV_ALIGN_IN_BOTTOM_MID, 0, BUTTON_TEXT_Y_OFFSET);
+    }
   }
 }
 
@@ -208,28 +221,33 @@ void disp_extru_amount() {
 }
 
 void disp_ext_step() {
-  char buf3[12];
-  sprintf_P(buf3, PSTR("%dmm"), uiCfg.extruStep);
-
-  switch (uiCfg.extruStep) {
-    case uiCfg.eStepMin: lv_imgbtn_set_src_both(buttonStep, "F:/bmp_step1_mm.bin");  break;
-    case uiCfg.eStepMed: lv_imgbtn_set_src_both(buttonStep, "F:/bmp_step5_mm.bin");  break;
-    case uiCfg.eStepMax: lv_imgbtn_set_src_both(buttonStep, "F:/bmp_step10_mm.bin"); break;
-  }
+  if (uiCfg.extruStep == 1)
+    lv_imgbtn_set_src_both(buttonStep, "F:/bmp_step1_mm.bin");
+  else if (uiCfg.extruStep == 5)
+    lv_imgbtn_set_src_both(buttonStep, "F:/bmp_step5_mm.bin");
+  else if (uiCfg.extruStep == 10)
+    lv_imgbtn_set_src_both(buttonStep, "F:/bmp_step10_mm.bin");
 
   if (gCfgItems.multiple_language) {
-    switch (uiCfg.extruStep) {
-      case uiCfg.eStepMin: lv_label_set_text(labelStep, buf3); break;
-      case uiCfg.eStepMed: lv_label_set_text(labelStep, buf3); break;
-      case uiCfg.eStepMax: lv_label_set_text(labelStep, buf3); break;
+    if (uiCfg.extruStep == 1) {
+      lv_label_set_text(labelStep, extrude_menu.step_1mm);
+      lv_obj_align(labelStep, buttonStep, LV_ALIGN_IN_BOTTOM_MID, 0, BUTTON_TEXT_Y_OFFSET);
     }
-    lv_obj_align(labelStep, buttonStep, LV_ALIGN_IN_BOTTOM_MID, 0, BUTTON_TEXT_Y_OFFSET);
+    else if (uiCfg.extruStep == 5) {
+      lv_label_set_text(labelStep, extrude_menu.step_5mm);
+      lv_obj_align(labelStep, buttonStep, LV_ALIGN_IN_BOTTOM_MID, 0, BUTTON_TEXT_Y_OFFSET);
+    }
+    else if (uiCfg.extruStep == 10) {
+      lv_label_set_text(labelStep, extrude_menu.step_10mm);
+      lv_obj_align(labelStep, buttonStep, LV_ALIGN_IN_BOTTOM_MID, 0, BUTTON_TEXT_Y_OFFSET);
+    }
   }
 }
 
 void lv_clear_extrusion() {
-  if (TERN0(HAS_ROTARY_ENCODER, gCfgItems.encoder_enable))
-    lv_group_remove_all_objs(g);
+  #if HAS_ROTARY_ENCODER
+    if (gCfgItems.encoder_enable) lv_group_remove_all_objs(g);
+  #endif
   lv_obj_del(scr);
 }
 

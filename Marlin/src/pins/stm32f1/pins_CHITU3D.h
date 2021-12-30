@@ -87,7 +87,7 @@
   #define FAN_PIN                           PG14  // MAIN BOARD FAN
 #endif
 
-#define FAN_SOFT_PWM_REQUIRED
+#define FAN_SOFT_PWM
 
 //
 // Temperature Sensors

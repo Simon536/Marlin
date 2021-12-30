@@ -27,7 +27,7 @@
 
 #include "env_validate.h"
 
-#if HAS_MULTI_HOTEND || E_STEPPERS > 1
+#if HOTENDS > 1 || E_STEPPERS > 1
   #error "CREALITY supports up to 1 hotends / E-steppers. Comment out this line to continue."
 #endif
 
@@ -144,7 +144,7 @@
 #define HEATER_BED_PIN                      PA1   // HOT BED
 
 #define FAN_PIN                             PA2   // FAN
-#define FAN_SOFT_PWM_REQUIRED
+#define FAN_SOFT_PWM
 
 //
 // SD Card
@@ -165,9 +165,9 @@
      *        ------
      *  PC6  |10  9 | PB2
      *  PB10 | 8  7 | PE8
-     *  PB14   6  5 | PB13
+     *  PB14 | 6  5 | PB13
      *  PB12 | 4  3 | PB15
-     *   GND | 2  1 | 5V
+     *  GND  | 2  1 | 5V
      *        ------
      *         EXP1
      */
@@ -189,9 +189,9 @@
      *        ------
      *  ?    |10  9 | PC5
      *  PB10 | 8  7 | ?
-     *  PA6    6  5 | PA5
+     *  PA6  | 6  5 | PA5
      *  PA4  | 4  3 | PA7
-     *   GND | 2  1 | 5V
+     *  GND  | 2  1 | 5V
      *        ------
      *         EXP1
      */
@@ -216,7 +216,7 @@
   #define BTN_EN1                    EXP1_08_PIN
   #define BTN_EN2                    EXP1_06_PIN
 
-#elif EITHER(HAS_DWIN_E3V2, IS_DWIN_MARLINUI)
+#elif EITHER(DWIN_CREALITY_LCD, IS_DWIN_MARLINUI)
 
   // RET6 DWIN ENCODER LCD
   #define BTN_ENC                           PB14

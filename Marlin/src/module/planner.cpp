@@ -91,6 +91,10 @@
   #include "../feature/power.h"
 #endif
 
+#if ENABLED(EXTERNAL_CLOSED_LOOP_CONTROLLER)
+  #include "../feature/closedloop.h"
+#endif
+
 #if ENABLED(BACKLASH_COMPENSATION)
   #include "../feature/backlash.h"
 #endif
@@ -134,7 +138,7 @@ planner_settings_t Planner::settings;           // Initialized by settings.load(
 
 uint32_t Planner::max_acceleration_steps_per_s2[DISTINCT_AXES]; // (steps/s^2) Derived from mm_per_s2
 
-float Planner::mm_per_step[DISTINCT_AXES];      // (mm) Millimeters per step
+float Planner::steps_to_mm[DISTINCT_AXES];      // (mm) Millimeters per step
 
 #if HAS_JUNCTION_DEVIATION
   float Planner::junction_deviation_mm;         // (mm) M205 J
@@ -1263,8 +1267,10 @@ void Planner::recalculate() {
 
     #if ENABLED(FAN_SOFT_PWM)
       #define _FAN_SET(F) thermalManager.soft_pwm_amount_fan[F] = CALC_FAN_SPEED(F);
+    #elif ENABLED(FAST_PWM_FAN)
+      #define _FAN_SET(F) set_pwm_duty(FAN##F##_PIN, CALC_FAN_SPEED(F));
     #else
-      #define _FAN_SET(F) set_pwm_duty(pin_t(FAN##F##_PIN), CALC_FAN_SPEED(F));
+      #define _FAN_SET(F) analogWrite(pin_t(FAN##F##_PIN), CALC_FAN_SPEED(F));
     #endif
     #define FAN_SET(F) do{ kickstart_fan(fan_speed, ms, F); _FAN_SET(F); }while(0)
 
@@ -1304,13 +1310,12 @@ void Planner::recalculate() {
  */
 void Planner::check_axes_activity() {
 
-  #if ANY(DISABLE_X, DISABLE_Y, DISABLE_Z, DISABLE_I, DISABLE_J, DISABLE_K, DISABLE_E)
+  #if ANY(DISABLE_X, DISABLE_Y, DISABLE_Z , DISABLE_I , DISABLE_J , DISABLE_K, DISABLE_E)
     xyze_bool_t axis_active = { false };
   #endif
 
   #if HAS_TAIL_FAN_SPEED
-    static uint8_t tail_fan_speed[FAN_COUNT] = ARRAY_N_1(FAN_COUNT, 255);
-    bool fans_need_update = false;
+    uint8_t tail_fan_speed[FAN_COUNT];
   #endif
 
   #if ENABLED(BARICUDA)
@@ -1329,13 +1334,7 @@ void Planner::check_axes_activity() {
     #endif
 
     #if HAS_TAIL_FAN_SPEED
-      FANS_LOOP(i) {
-        const uint8_t spd = thermalManager.scaledFanSpeed(i, block->fan_speed[i]);
-        if (tail_fan_speed[i] != spd) {
-          fans_need_update = true;
-          tail_fan_speed[i] = spd;
-        }
-      }
+      FANS_LOOP(i) tail_fan_speed[i] = thermalManager.scaledFanSpeed(i, block->fan_speed[i]);
     #endif
 
     #if ENABLED(BARICUDA)
@@ -1363,13 +1362,7 @@ void Planner::check_axes_activity() {
     TERN_(HAS_CUTTER, cutter.refresh());
 
     #if HAS_TAIL_FAN_SPEED
-      FANS_LOOP(i) {
-        const uint8_t spd = thermalManager.scaledFanSpeed(i);
-        if (tail_fan_speed[i] != spd) {
-          fans_need_update = true;
-          tail_fan_speed[i] = spd;
-        }
-      }
+      FANS_LOOP(i) tail_fan_speed[i] = thermalManager.scaledFanSpeed(i);
     #endif
 
     #if ENABLED(BARICUDA)
@@ -1382,26 +1375,26 @@ void Planner::check_axes_activity() {
   // Disable inactive axes
   //
   LOGICAL_AXIS_CODE(
-    if (TERN0(DISABLE_E, !axis_active.e)) stepper.disable_e_steppers(),
-    if (TERN0(DISABLE_X, !axis_active.x)) stepper.disable_axis(X_AXIS),
-    if (TERN0(DISABLE_Y, !axis_active.y)) stepper.disable_axis(Y_AXIS),
-    if (TERN0(DISABLE_Z, !axis_active.z)) stepper.disable_axis(Z_AXIS),
-    if (TERN0(DISABLE_I, !axis_active.i)) stepper.disable_axis(I_AXIS),
-    if (TERN0(DISABLE_J, !axis_active.j)) stepper.disable_axis(J_AXIS),
-    if (TERN0(DISABLE_K, !axis_active.k)) stepper.disable_axis(K_AXIS)
+    if (TERN0(DISABLE_E, !axis_active.e)) disable_e_steppers(),
+    if (TERN0(DISABLE_X, !axis_active.x)) DISABLE_AXIS_X(),
+    if (TERN0(DISABLE_Y, !axis_active.y)) DISABLE_AXIS_Y(),
+    if (TERN0(DISABLE_Z, !axis_active.z)) DISABLE_AXIS_Z(),
+    if (TERN0(DISABLE_I, !axis_active.i)) DISABLE_AXIS_I(),
+    if (TERN0(DISABLE_J, !axis_active.j)) DISABLE_AXIS_J(),
+    if (TERN0(DISABLE_K, !axis_active.k)) DISABLE_AXIS_K()
   );
 
   //
   // Update Fan speeds
   // Only if synchronous M106/M107 is disabled
   //
-  TERN_(HAS_TAIL_FAN_SPEED, if (fans_need_update) sync_fan_speeds(tail_fan_speed));
+  TERN_(HAS_TAIL_FAN_SPEED, sync_fan_speeds(tail_fan_speed));
 
   TERN_(AUTOTEMP, autotemp_task());
 
   #if ENABLED(BARICUDA)
-    TERN_(HAS_HEATER_1, set_pwm_duty(pin_t(HEATER_1_PIN), tail_valve_pressure));
-    TERN_(HAS_HEATER_2, set_pwm_duty(pin_t(HEATER_2_PIN), tail_e_to_p_pressure));
+    TERN_(HAS_HEATER_1, analogWrite(pin_t(HEATER_1_PIN), tail_valve_pressure));
+    TERN_(HAS_HEATER_2, analogWrite(pin_t(HEATER_2_PIN), tail_e_to_p_pressure));
   #endif
 }
 
@@ -1464,7 +1457,7 @@ void Planner::check_axes_activity() {
 
     float t = autotemp_min + high * autotemp_factor;
     LIMIT(t, autotemp_min, autotemp_max);
-    if (t < oldt) t = t * (1.0f - (AUTOTEMP_OLDWEIGHT)) + oldt * (AUTOTEMP_OLDWEIGHT);
+    if (t < oldt) t *= (1.0f - (AUTOTEMP_OLDWEIGHT)) + oldt * (AUTOTEMP_OLDWEIGHT);
     oldt = t;
     thermalManager.setTargetHotend(t, active_extruder);
   }
@@ -1709,12 +1702,12 @@ void Planner::endstop_triggered(const AxisEnum axis) {
 }
 
 float Planner::triggered_position_mm(const AxisEnum axis) {
-  return stepper.triggered_position(axis) * mm_per_step[axis];
+  return stepper.triggered_position(axis) * steps_to_mm[axis];
 }
 
 void Planner::finish_and_disable() {
   while (has_blocks_queued() || cleaning_buffer_counter) idle();
-  stepper.disable_all_steppers();
+  disable_all_steppers();
 }
 
 /**
@@ -1743,7 +1736,7 @@ float Planner::get_axis_position_mm(const AxisEnum axis) {
     else
       axis_steps = stepper.position(axis);
 
-  #elif EITHER(MARKFORGED_XY, MARKFORGED_YX)
+  #elif ENABLED(MARKFORGED_XY)
 
     // Requesting one of the joined axes?
     if (axis == CORE_AXIS_1 || axis == CORE_AXIS_2) {
@@ -1766,13 +1759,17 @@ float Planner::get_axis_position_mm(const AxisEnum axis) {
 
   #endif
 
-  return axis_steps * mm_per_step[axis];
+  return axis_steps * steps_to_mm[axis];
 }
 
 /**
- * Block until the planner is finished processing
+ * Block until all buffered steps are executed / cleaned
  */
-void Planner::synchronize() { while (busy()) idle(); }
+void Planner::synchronize() {
+  while (has_blocks_queued() || cleaning_buffer_counter
+      || TERN0(EXTERNAL_CLOSED_LOOP_CONTROLLER, CLOSED_LOOP_WAITING())
+  ) idle();
+}
 
 /**
  * Planner::_buffer_steps
@@ -1861,7 +1858,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   );
 
   /* <-- add a slash to enable
-    SERIAL_ECHOLNPGM(
+    SERIAL_ECHOLNPAIR(
       "  _populate_block FR:", fr_mm_s,
       " A:", target.a, " (", da, " steps)"
       " B:", target.b, " (", db, " steps)"
@@ -1916,44 +1913,31 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   #endif // PREVENT_COLD_EXTRUSION || PREVENT_LENGTHY_EXTRUDE
 
   // Compute direction bit-mask for this block
-  axis_bits_t dm = 0;
-  #if ANY(CORE_IS_XY, MARKFORGED_XY, MARKFORGED_YX)
-    if (da < 0) SBI(dm, X_HEAD);                  // Save the toolhead's true direction in X
-    if (db < 0) SBI(dm, Y_HEAD);                  // ...and Y
+  uint8_t dm = 0;
+  #if CORE_IS_XY
+    if (da < 0) SBI(dm, X_HEAD);                // Save the toolhead's true direction in X
+    if (db < 0) SBI(dm, Y_HEAD);                // ...and Y
     if (dc < 0) SBI(dm, Z_AXIS);
-  #endif
-  #if IS_CORE
-    #if CORE_IS_XY
-      if (da + db < 0) SBI(dm, A_AXIS);           // Motor A direction
-      if (CORESIGN(da - db) < 0) SBI(dm, B_AXIS); // Motor B direction
-    #elif CORE_IS_XZ
-      if (da < 0) SBI(dm, X_HEAD);                // Save the toolhead's true direction in X
-      if (db < 0) SBI(dm, Y_AXIS);
-      if (dc < 0) SBI(dm, Z_HEAD);                // ...and Z
-      if (da + dc < 0) SBI(dm, A_AXIS);           // Motor A direction
-      if (CORESIGN(da - dc) < 0) SBI(dm, C_AXIS); // Motor C direction
-    #elif CORE_IS_YZ
-      if (da < 0) SBI(dm, X_AXIS);
-      if (db < 0) SBI(dm, Y_HEAD);                // Save the toolhead's true direction in Y
-      if (dc < 0) SBI(dm, Z_HEAD);                // ...and Z
-      if (db + dc < 0) SBI(dm, B_AXIS);           // Motor B direction
-      if (CORESIGN(db - dc) < 0) SBI(dm, C_AXIS); // Motor C direction
-    #endif
-    #if LINEAR_AXES >= 4
-      if (di < 0) SBI(dm, I_AXIS);
-    #endif
-    #if LINEAR_AXES >= 5
-      if (dj < 0) SBI(dm, J_AXIS);
-    #endif
-    #if LINEAR_AXES >= 6
-      if (dk < 0) SBI(dm, K_AXIS);
-    #endif
+    if (da + db < 0) SBI(dm, A_AXIS);           // Motor A direction
+    if (CORESIGN(da - db) < 0) SBI(dm, B_AXIS); // Motor B direction
+  #elif CORE_IS_XZ
+    if (da < 0) SBI(dm, X_HEAD);                // Save the toolhead's true direction in X
+    if (db < 0) SBI(dm, Y_AXIS);
+    if (dc < 0) SBI(dm, Z_HEAD);                // ...and Z
+    if (da + dc < 0) SBI(dm, A_AXIS);           // Motor A direction
+    if (CORESIGN(da - dc) < 0) SBI(dm, C_AXIS); // Motor C direction
+  #elif CORE_IS_YZ
+    if (da < 0) SBI(dm, X_AXIS);
+    if (db < 0) SBI(dm, Y_HEAD);                // Save the toolhead's true direction in Y
+    if (dc < 0) SBI(dm, Z_HEAD);                // ...and Z
+    if (db + dc < 0) SBI(dm, B_AXIS);           // Motor B direction
+    if (CORESIGN(db - dc) < 0) SBI(dm, C_AXIS); // Motor C direction
   #elif ENABLED(MARKFORGED_XY)
-    if (da + db < 0) SBI(dm, A_AXIS);              // Motor A direction
-    if (db < 0) SBI(dm, B_AXIS);                   // Motor B direction
-  #elif ENABLED(MARKFORGED_YX)
-    if (da < 0) SBI(dm, A_AXIS);                   // Motor A direction
-    if (db + da < 0) SBI(dm, B_AXIS);              // Motor B direction
+    if (da < 0) SBI(dm, X_HEAD);                // Save the toolhead's true direction in X
+    if (db < 0) SBI(dm, Y_HEAD);                // ...and Y
+    if (dc < 0) SBI(dm, Z_AXIS);
+    if (da + db < 0) SBI(dm, A_AXIS);           // Motor A direction
+    if (db < 0) SBI(dm, B_AXIS);                // Motor B direction
   #else
     LINEAR_AXIS_CODE(
       if (da < 0) SBI(dm, X_AXIS),
@@ -1965,8 +1949,21 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     );
   #endif
 
+  #if IS_CORE
+    #if LINEAR_AXES >= 4
+      if (di < 0) SBI(dm, I_AXIS);
+    #endif
+    #if LINEAR_AXES >= 5
+      if (dj < 0) SBI(dm, J_AXIS);
+    #endif
+    #if LINEAR_AXES >= 6
+      if (dk < 0) SBI(dm, K_AXIS);
+    #endif
+  #endif
+
+  TERN_(HAS_EXTRUDERS, if (de < 0) SBI(dm, E_AXIS));
+
   #if HAS_EXTRUDERS
-    if (de < 0) SBI(dm, E_AXIS);
     const float esteps_float = de * e_factor[extruder];
     const uint32_t esteps = ABS(esteps_float) + 0.5f;
   #else
@@ -1996,8 +1993,6 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     block->steps.set(LINEAR_AXIS_LIST(ABS(da), ABS(db + dc), ABS(db - dc), ABS(di), ABS(dj), ABS(dk)));
   #elif ENABLED(MARKFORGED_XY)
     block->steps.set(LINEAR_AXIS_LIST(ABS(da + db), ABS(db), ABS(dc), ABS(di), ABS(dj), ABS(dk)));
-  #elif ENABLED(MARKFORGED_YX)
-    block->steps.set(LINEAR_AXIS_LIST(ABS(da), ABS(db + da), ABS(dc), ABS(di), ABS(dj), ABS(dk)));
   #elif IS_SCARA
     block->steps.set(LINEAR_AXIS_LIST(ABS(da), ABS(db), ABS(dc), ABS(di), ABS(dj), ABS(dk)));
   #else
@@ -2014,60 +2009,57 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
    * Having the real displacement of the head, we can calculate the total movement length and apply the desired speed.
    */
   struct DistanceMM : abce_float_t {
-    #if ANY(IS_CORE, MARKFORGED_XY, MARKFORGED_YX)
+    #if EITHER(IS_CORE, MARKFORGED_XY)
       struct { float x, y, z; } head;
     #endif
   } steps_dist_mm;
-
-  #if ANY(CORE_IS_XY, MARKFORGED_XY, MARKFORGED_YX)
-    steps_dist_mm.head.x = da * mm_per_step[A_AXIS];
-    steps_dist_mm.head.y = db * mm_per_step[B_AXIS];
-    steps_dist_mm.z      = dc * mm_per_step[Z_AXIS];
-  #endif
   #if IS_CORE
     #if CORE_IS_XY
-      steps_dist_mm.a      = (da + db) * mm_per_step[A_AXIS];
-      steps_dist_mm.b      = CORESIGN(da - db) * mm_per_step[B_AXIS];
+      steps_dist_mm.head.x = da * steps_to_mm[A_AXIS];
+      steps_dist_mm.head.y = db * steps_to_mm[B_AXIS];
+      steps_dist_mm.z      = dc * steps_to_mm[Z_AXIS];
+      steps_dist_mm.a      = (da + db) * steps_to_mm[A_AXIS];
+      steps_dist_mm.b      = CORESIGN(da - db) * steps_to_mm[B_AXIS];
     #elif CORE_IS_XZ
-      steps_dist_mm.head.x = da * mm_per_step[A_AXIS];
-      steps_dist_mm.y      = db * mm_per_step[Y_AXIS];
-      steps_dist_mm.head.z = dc * mm_per_step[C_AXIS];
-      steps_dist_mm.a      = (da + dc) * mm_per_step[A_AXIS];
-      steps_dist_mm.c      = CORESIGN(da - dc) * mm_per_step[C_AXIS];
+      steps_dist_mm.head.x = da * steps_to_mm[A_AXIS];
+      steps_dist_mm.y      = db * steps_to_mm[Y_AXIS];
+      steps_dist_mm.head.z = dc * steps_to_mm[C_AXIS];
+      steps_dist_mm.a      = (da + dc) * steps_to_mm[A_AXIS];
+      steps_dist_mm.c      = CORESIGN(da - dc) * steps_to_mm[C_AXIS];
     #elif CORE_IS_YZ
-      steps_dist_mm.x      = da * mm_per_step[X_AXIS];
-      steps_dist_mm.head.y = db * mm_per_step[B_AXIS];
-      steps_dist_mm.head.z = dc * mm_per_step[C_AXIS];
-      steps_dist_mm.b      = (db + dc) * mm_per_step[B_AXIS];
-      steps_dist_mm.c      = CORESIGN(db - dc) * mm_per_step[C_AXIS];
+      steps_dist_mm.x      = da * steps_to_mm[X_AXIS];
+      steps_dist_mm.head.y = db * steps_to_mm[B_AXIS];
+      steps_dist_mm.head.z = dc * steps_to_mm[C_AXIS];
+      steps_dist_mm.b      = (db + dc) * steps_to_mm[B_AXIS];
+      steps_dist_mm.c      = CORESIGN(db - dc) * steps_to_mm[C_AXIS];
     #endif
     #if LINEAR_AXES >= 4
-      steps_dist_mm.i = di * mm_per_step[I_AXIS];
+      steps_dist_mm.i = di * steps_to_mm[I_AXIS];
     #endif
     #if LINEAR_AXES >= 5
-      steps_dist_mm.j = dj * mm_per_step[J_AXIS];
+      steps_dist_mm.j = dj * steps_to_mm[J_AXIS];
     #endif
     #if LINEAR_AXES >= 6
-      steps_dist_mm.k = dk * mm_per_step[K_AXIS];
+      steps_dist_mm.k = dk * steps_to_mm[K_AXIS];
     #endif
   #elif ENABLED(MARKFORGED_XY)
-    steps_dist_mm.a      = (da - db) * mm_per_step[A_AXIS];
-    steps_dist_mm.b      = db * mm_per_step[B_AXIS];
-  #elif ENABLED(MARKFORGED_YX)
-    steps_dist_mm.a      = da * mm_per_step[A_AXIS];
-    steps_dist_mm.b      = (db - da) * mm_per_step[B_AXIS];
+    steps_dist_mm.head.x = da * steps_to_mm[A_AXIS];
+    steps_dist_mm.head.y = db * steps_to_mm[B_AXIS];
+    steps_dist_mm.z      = dc * steps_to_mm[Z_AXIS];
+    steps_dist_mm.a      = (da - db) * steps_to_mm[A_AXIS];
+    steps_dist_mm.b      = db * steps_to_mm[B_AXIS];
   #else
     LINEAR_AXIS_CODE(
-      steps_dist_mm.a = da * mm_per_step[A_AXIS],
-      steps_dist_mm.b = db * mm_per_step[B_AXIS],
-      steps_dist_mm.c = dc * mm_per_step[C_AXIS],
-      steps_dist_mm.i = di * mm_per_step[I_AXIS],
-      steps_dist_mm.j = dj * mm_per_step[J_AXIS],
-      steps_dist_mm.k = dk * mm_per_step[K_AXIS]
+      steps_dist_mm.a = da * steps_to_mm[A_AXIS],
+      steps_dist_mm.b = db * steps_to_mm[B_AXIS],
+      steps_dist_mm.c = dc * steps_to_mm[C_AXIS],
+      steps_dist_mm.i = di * steps_to_mm[I_AXIS],
+      steps_dist_mm.j = dj * steps_to_mm[J_AXIS],
+      steps_dist_mm.k = dk * steps_to_mm[K_AXIS]
     );
   #endif
 
-  TERN_(HAS_EXTRUDERS, steps_dist_mm.e = esteps_float * mm_per_step[E_AXIS_N(extruder)]);
+  TERN_(HAS_EXTRUDERS, steps_dist_mm.e = esteps_float * steps_to_mm[E_AXIS_N(extruder)]);
 
   TERN_(LCD_SHOW_E_TOTAL, e_move_accumulator += steps_dist_mm.e);
 
@@ -2087,7 +2079,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
       block->millimeters = millimeters;
     else {
       block->millimeters = SQRT(
-        #if ANY(CORE_IS_XY, MARKFORGED_XY, MARKFORGED_YX)
+        #if EITHER(CORE_IS_XY, MARKFORGED_XY)
           LINEAR_AXIS_GANG(
               sq(steps_dist_mm.head.x), + sq(steps_dist_mm.head.y), + sq(steps_dist_mm.z),
             + sq(steps_dist_mm.i),      + sq(steps_dist_mm.j),      + sq(steps_dist_mm.k)
@@ -2139,7 +2131,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   // Bail if this is a zero-length block
   if (block->step_event_count < MIN_STEPS_PER_SEGMENT) return false;
 
-  TERN_(MIXING_EXTRUDER, mixer.populate_block(block->b_color));
+  TERN_(MIXING_EXTRUDER, mixer.populate_block(block->b_color))
 
   TERN_(HAS_CUTTER, block->cutter_power = cutter.power);
 
@@ -2152,7 +2144,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
     block->e_to_p_pressure = baricuda_e_to_p_pressure;
   #endif
 
-  E_TERN_(block->extruder = extruder);
+  TERN_(HAS_MULTI_EXTRUDER, block->extruder = extruder);
 
   #if ENABLED(AUTO_POWER_CONTROL)
     if (LINEAR_AXIS_GANG(
@@ -2166,45 +2158,45 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
   #endif
 
   // Enable active axes
-  #if ANY(CORE_IS_XY, MARKFORGED_XY, MARKFORGED_YX)
+  #if EITHER(CORE_IS_XY, MARKFORGED_XY)
     if (block->steps.a || block->steps.b) {
-      stepper.enable_axis(X_AXIS);
-      stepper.enable_axis(Y_AXIS);
+      ENABLE_AXIS_X();
+      ENABLE_AXIS_Y();
     }
     #if DISABLED(Z_LATE_ENABLE)
-      if (block->steps.z) stepper.enable_axis(Z_AXIS);
+      if (block->steps.z) ENABLE_AXIS_Z();
     #endif
   #elif CORE_IS_XZ
     if (block->steps.a || block->steps.c) {
-      stepper.enable_axis(X_AXIS);
-      stepper.enable_axis(Z_AXIS);
+      ENABLE_AXIS_X();
+      ENABLE_AXIS_Z();
     }
-    if (block->steps.y) stepper.enable_axis(Y_AXIS);
+    if (block->steps.y) ENABLE_AXIS_Y();
   #elif CORE_IS_YZ
     if (block->steps.b || block->steps.c) {
-      stepper.enable_axis(Y_AXIS);
-      stepper.enable_axis(Z_AXIS);
+      ENABLE_AXIS_Y();
+      ENABLE_AXIS_Z();
     }
-    if (block->steps.x) stepper.enable_axis(X_AXIS);
+    if (block->steps.x) ENABLE_AXIS_X();
   #else
     LINEAR_AXIS_CODE(
-      if (block->steps.x) stepper.enable_axis(X_AXIS),
-      if (block->steps.y) stepper.enable_axis(Y_AXIS),
-      if (TERN(Z_LATE_ENABLE, 0, block->steps.z)) stepper.enable_axis(Z_AXIS),
-      if (block->steps.i) stepper.enable_axis(I_AXIS),
-      if (block->steps.j) stepper.enable_axis(J_AXIS),
-      if (block->steps.k) stepper.enable_axis(K_AXIS)
+      if (block->steps.x) ENABLE_AXIS_X(),
+      if (block->steps.y) ENABLE_AXIS_Y(),
+      if (TERN(Z_LATE_ENABLE, 0, block->steps.z)) ENABLE_AXIS_Z(),
+      if (block->steps.i) ENABLE_AXIS_I(),
+      if (block->steps.j) ENABLE_AXIS_J(),
+      if (block->steps.k) ENABLE_AXIS_K()
     );
   #endif
-  #if ANY(CORE_IS_XY, MARKFORGED_XY, MARKFORGED_YX)
+  #if EITHER(IS_CORE, MARKFORGED_XY)
     #if LINEAR_AXES >= 4
-      if (block->steps.i) stepper.enable_axis(I_AXIS);
+      if (block->steps.i) ENABLE_AXIS_I();
     #endif
     #if LINEAR_AXES >= 5
-      if (block->steps.j) stepper.enable_axis(J_AXIS);
+      if (block->steps.j) ENABLE_AXIS_J();
     #endif
     #if LINEAR_AXES >= 6
-      if (block->steps.k) stepper.enable_axis(K_AXIS);
+      if (block->steps.k) ENABLE_AXIS_K();
     #endif
   #endif
 
@@ -2215,34 +2207,34 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
 
       #if ENABLED(DISABLE_INACTIVE_EXTRUDER) // Enable only the selected extruder
 
-        // Count down all steppers that were recently moved
         LOOP_L_N(i, E_STEPPERS)
           if (g_uc_extruder_last_move[i]) g_uc_extruder_last_move[i]--;
 
-        // Switching Extruder uses one E stepper motor per two nozzles
         #define E_STEPPER_INDEX(E) TERN(SWITCHING_EXTRUDER, (E) / 2, E)
 
-        // Enable all (i.e., both) E steppers for IDEX-style duplication, but only active E steppers for multi-nozzle (i.e., single wide X carriage) duplication
-        #define _IS_DUPE(N) TERN0(HAS_DUPLICATION_MODE, (extruder_duplication_enabled && TERN1(MULTI_NOZZLE_DUPLICATION, TEST(duplication_e_mask, N))))
-
         #define ENABLE_ONE_E(N) do{ \
-          if (N == E_STEPPER_INDEX(extruder) || _IS_DUPE(N)) {    /* N is 'extruder', or N is duplicating */ \
-            stepper.ENABLE_EXTRUDER(N);                           /* Enable the relevant E stepper... */ \
-            g_uc_extruder_last_move[N] = (BLOCK_BUFFER_SIZE) * 2; /* ...and reset its counter */ \
+          if (E_STEPPER_INDEX(extruder) == N) { \
+            ENABLE_AXIS_E##N(); \
+            g_uc_extruder_last_move[N] = (BLOCK_BUFFER_SIZE) * 2; \
+            if ((N) == 0 && TERN0(HAS_DUPLICATION_MODE, extruder_duplication_enabled)) \
+              ENABLE_AXIS_E1(); \
           } \
-          else if (!g_uc_extruder_last_move[N])                   /* Counter expired since last E stepper enable */ \
-            stepper.DISABLE_EXTRUDER(N);                          /* Disable the E stepper */ \
+          else if (!g_uc_extruder_last_move[N]) { \
+            DISABLE_AXIS_E##N(); \
+            if ((N) == 0 && TERN0(HAS_DUPLICATION_MODE, extruder_duplication_enabled)) \
+              DISABLE_AXIS_E1(); \
+          } \
         }while(0);
 
       #else
 
-        #define ENABLE_ONE_E(N) stepper.ENABLE_EXTRUDER(N);
+        #define ENABLE_ONE_E(N) ENABLE_AXIS_E##N();
 
       #endif
 
       REPEAT(E_STEPPERS, ENABLE_ONE_E); // (ENABLE_ONE_E must end with semicolon)
     }
-  #endif // HAS_EXTRUDERS
+  #endif // EXTRUDERS
 
   if (esteps)
     NOLESS(fr_mm_s, settings.min_feedrate_mm_s);
@@ -2339,10 +2331,10 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
           if (max_vfr > 0 && cs > max_vfr) {
             NOMORE(speed_factor, max_vfr / cs); // respect volumetric extruder limit (if any)
             /* <-- add a slash to enable
-            SERIAL_ECHOPGM("volumetric extruder limit enforced: ", (cs * CIRCLE_AREA(filament_size[extruder] * 0.5f)));
-            SERIAL_ECHOPGM(" mm^3/s (", cs);
-            SERIAL_ECHOPGM(" mm/s) limited to ", (max_vfr * CIRCLE_AREA(filament_size[extruder] * 0.5f)));
-            SERIAL_ECHOPGM(" mm^3/s (", max_vfr);
+            SERIAL_ECHOPAIR("volumetric extruder limit enforced: ", (cs * CIRCLE_AREA(filament_size[extruder] * 0.5f)));
+            SERIAL_ECHOPAIR(" mm^3/s (", cs);
+            SERIAL_ECHOPAIR(" mm/s) limited to ", (max_vfr * CIRCLE_AREA(filament_size[extruder] * 0.5f)));
+            SERIAL_ECHOPAIR(" mm^3/s (", max_vfr);
             SERIAL_ECHOLNPGM(" mm/s)");
             //*/
           }
@@ -2353,11 +2345,11 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
 
   #ifdef XY_FREQUENCY_LIMIT
 
-    static axis_bits_t old_direction_bits; // = 0
+    static uint8_t old_direction_bits; // = 0
 
     if (xy_freq_limit_hz) {
       // Check and limit the xy direction change frequency
-      const axis_bits_t direction_change = block->direction_bits ^ old_direction_bits;
+      const uint8_t direction_change = block->direction_bits ^ old_direction_bits;
       old_direction_bits = block->direction_bits;
       segment_time_us = LROUND(float(segment_time_us) / speed_factor);
 
@@ -2554,7 +2546,7 @@ bool Planner::_populate_block(block_t * const block, bool split_move,
      * => normalize the complete junction vector.
      * Elsewise, when needed JD will factor-in the E component
      */
-    if (ANY(IS_CORE, MARKFORGED_XY, MARKFORGED_YX) || esteps > 0)
+    if (EITHER(IS_CORE, MARKFORGED_XY) || esteps > 0)
       normalize_junction_vector(unit_vec);  // Normalize with XYZE components
     else
       unit_vec *= inverse_millimeters;      // Use pre-calculated (1 / SQRT(x^2 + y^2 + z^2))
@@ -2897,7 +2889,7 @@ bool Planner::buffer_segment(const abce_pos_t &abce
   // When changing extruders recalculate steps corresponding to the E position
   #if ENABLED(DISTINCT_E_FACTORS)
     if (last_extruder != extruder && settings.axis_steps_per_mm[E_AXIS_N(extruder)] != settings.axis_steps_per_mm[E_AXIS_N(last_extruder)]) {
-      position.e = LROUND(position.e * settings.axis_steps_per_mm[E_AXIS_N(extruder)] * mm_per_step[E_AXIS_N(last_extruder)]);
+      position.e = LROUND(position.e * settings.axis_steps_per_mm[E_AXIS_N(extruder)] * steps_to_mm[E_AXIS_N(last_extruder)]);
       last_extruder = extruder;
     }
   #endif
@@ -2929,44 +2921,44 @@ bool Planner::buffer_segment(const abce_pos_t &abce
   #endif
 
   /* <-- add a slash to enable
-    SERIAL_ECHOPGM("  buffer_segment FR:", fr_mm_s);
+    SERIAL_ECHOPAIR("  buffer_segment FR:", fr_mm_s);
     #if IS_KINEMATIC
-      SERIAL_ECHOPGM(" A:", abce.a, " (", position.a, "->", target.a, ") B:", abce.b);
+      SERIAL_ECHOPAIR(" A:", abce.a, " (", position.a, "->", target.a, ") B:", abce.b);
     #else
-      SERIAL_ECHOPGM_P(SP_X_LBL, abce.a);
-      SERIAL_ECHOPGM(" (", position.x, "->", target.x);
+      SERIAL_ECHOPAIR_P(SP_X_LBL, abce.a);
+      SERIAL_ECHOPAIR(" (", position.x, "->", target.x);
       SERIAL_CHAR(')');
-      SERIAL_ECHOPGM_P(SP_Y_LBL, abce.b);
+      SERIAL_ECHOPAIR_P(SP_Y_LBL, abce.b);
     #endif
-    SERIAL_ECHOPGM(" (", position.y, "->", target.y);
+    SERIAL_ECHOPAIR(" (", position.y, "->", target.y);
     #if LINEAR_AXES >= ABC
       #if ENABLED(DELTA)
-        SERIAL_ECHOPGM(") C:", abce.c);
+        SERIAL_ECHOPAIR(") C:", abce.c);
       #else
         SERIAL_CHAR(')');
-        SERIAL_ECHOPGM_P(SP_Z_LBL, abce.c);
+        SERIAL_ECHOPAIR_P(SP_Z_LBL, abce.c);
       #endif
-      SERIAL_ECHOPGM(" (", position.z, "->", target.z);
+      SERIAL_ECHOPAIR(" (", position.z, "->", target.z);
       SERIAL_CHAR(')');
     #endif
     #if LINEAR_AXES >= 4
-      SERIAL_ECHOPGM_P(SP_I_LBL, abce.i);
-      SERIAL_ECHOPGM(" (", position.i, "->", target.i);
+      SERIAL_ECHOPAIR_P(SP_I_LBL, abce.i);
+      SERIAL_ECHOPAIR(" (", position.i, "->", target.i);
       SERIAL_CHAR(')');
     #endif
     #if LINEAR_AXES >= 5
-      SERIAL_ECHOPGM_P(SP_J_LBL, abce.j);
-      SERIAL_ECHOPGM(" (", position.j, "->", target.j);
+      SERIAL_ECHOPAIR_P(SP_J_LBL, abce.j);
+      SERIAL_ECHOPAIR(" (", position.j, "->", target.j);
       SERIAL_CHAR(')');
     #endif
     #if LINEAR_AXES >= 6
-      SERIAL_ECHOPGM_P(SP_K_LBL, abce.k);
-      SERIAL_ECHOPGM(" (", position.k, "->", target.k);
+      SERIAL_ECHOPAIR_P(SP_K_LBL, abce.k);
+      SERIAL_ECHOPAIR(" (", position.k, "->", target.k);
       SERIAL_CHAR(')');
     #endif
     #if HAS_EXTRUDERS
-      SERIAL_ECHOPGM_P(SP_E_LBL, abce.e);
-      SERIAL_ECHOLNPGM(" (", position.e, "->", target.e, ")");
+      SERIAL_ECHOPAIR_P(SP_E_LBL, abce.e);
+      SERIAL_ECHOLNPAIR(" (", position.e, "->", target.e, ")");
     #else
       SERIAL_EOL();
     #endif
@@ -3029,7 +3021,7 @@ bool Planner::buffer_line(const xyze_pos_t &cart, const_feedRate_t fr_mm_s, cons
     #else
       const feedRate_t feedrate = fr_mm_s;
     #endif
-    TERN_(HAS_EXTRUDERS, delta.e = machine.e);
+    delta.e = machine.e;
     if (buffer_segment(delta OPTARG(HAS_DIST_MM_ARG, cart_dist_mm), feedrate, extruder, mm)) {
       position_cart = cart;
       return true;
@@ -3044,7 +3036,7 @@ bool Planner::buffer_line(const xyze_pos_t &cart, const_feedRate_t fr_mm_s, cons
 
   void Planner::buffer_page(const page_idx_t page_idx, const uint8_t extruder, const uint16_t num_steps) {
     if (!last_page_step_rate) {
-      kill(GET_TEXT_F(MSG_BAD_PAGE_SPEED));
+      kill(GET_TEXT(MSG_BAD_PAGE_SPEED));
       return;
     }
 
@@ -3057,7 +3049,7 @@ bool Planner::buffer_line(const xyze_pos_t &cart, const_feedRate_t fr_mm_s, cons
       FANS_LOOP(i) block->fan_speed[i] = thermalManager.fan_speed[i];
     #endif
 
-    E_TERN_(block->extruder = extruder);
+    TERN_(HAS_MULTI_EXTRUDER, block->extruder = extruder);
 
     block->page_idx = page_idx;
 
@@ -3093,7 +3085,7 @@ bool Planner::buffer_line(const xyze_pos_t &cart, const_feedRate_t fr_mm_s, cons
     // Move buffer head
     block_buffer_head = next_buffer_head;
 
-    stepper.enable_all_steppers();
+    enable_all_steppers();
     stepper.wake_up();
   }
 
@@ -3134,7 +3126,7 @@ void Planner::set_position_mm(const xyze_pos_t &xyze) {
   #if IS_KINEMATIC
     position_cart = xyze;
     inverse_kinematics(machine);
-    TERN_(HAS_EXTRUDERS, delta.e = machine.e);
+    delta.e = machine.e;
     set_machine_position_mm(delta);
   #else
     set_machine_position_mm(machine);
@@ -3176,11 +3168,11 @@ void Planner::reset_acceleration_rates() {
 }
 
 /**
- * Recalculate 'position' and 'mm_per_step'.
+ * Recalculate 'position' and 'steps_to_mm'.
  * Must be called whenever settings.axis_steps_per_mm changes!
  */
 void Planner::refresh_positioning() {
-  LOOP_DISTINCT_AXES(i) mm_per_step[i] = 1.0f / settings.axis_steps_per_mm[i];
+  LOOP_DISTINCT_AXES(i) steps_to_mm[i] = 1.0f / settings.axis_steps_per_mm[i];
   set_position_mm(current_position);
   reset_acceleration_rates();
 }
@@ -3194,7 +3186,7 @@ inline void limit_and_warn(float &val, const uint8_t axis, PGM_P const setting_n
     SERIAL_CHAR(AXIS_CHAR(lim_axis));
     SERIAL_ECHOPGM(" Max ");
     SERIAL_ECHOPGM_P(setting_name);
-    SERIAL_ECHOLNPGM(" limited to ", val);
+    SERIAL_ECHOLNPAIR(" limited to ", val);
   }
 }
 

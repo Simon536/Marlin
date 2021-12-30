@@ -64,9 +64,7 @@
 //
 // Probe
 //
-#ifndef PROBE_TARE_PIN
-  #define PROBE_TARE_PIN                    PA5
-#endif
+#define PROBE_TARE_PIN                      PA5
 
 //
 // Steppers
@@ -97,7 +95,7 @@
 // Heaters / Fans
 //
 
-#define FAN_SOFT_PWM_REQUIRED
+#define FAN_SOFT_PWM
 
 //
 // SD Card

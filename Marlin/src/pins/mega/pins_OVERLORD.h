@@ -49,7 +49,7 @@
   #define Z_MIN_PROBE_PIN                     46  // JP4, Tfeed1
 #endif
 
-#ifndef FIL_RUNOUT_PIN
+#if ENABLED(FILAMENT_RUNOUT_SENSOR)
   #define FIL_RUNOUT_PIN                      44  // JP3, Tfeed2
 #endif
 
@@ -119,7 +119,7 @@
 //
 // LCD / Controller
 //
-#if HAS_WIRED_LCD
+#if HAS_MARLINUI_U8GLIB
   // OVERLORD OLED pins
   #define LCD_PINS_RS                         20
   #define LCD_PINS_D5                         21

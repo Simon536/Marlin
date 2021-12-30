@@ -31,7 +31,7 @@
 
 #if NOT_TARGET(__STM32F1__, STM32F1xx)
   #error "Oops! Select an STM32F1 board in 'Tools > Board.'"
-#elif HAS_MULTI_HOTEND || E_STEPPERS > 1
+#elif HOTENDS > 1 || E_STEPPERS > 1
   #error "FLSUN HiSpeedV1 only supports one hotend / E-stepper. Comment out this line to continue."
 #endif
 
@@ -41,7 +41,7 @@
 #define BOARD_NO_NATIVE_USB
 
 // Avoid conflict with TIMER_SERVO when using the STM32 HAL
-#define TEMP_TIMER  5
+#define TEMP_TIMER                             5
 
 //
 // Release PB4 (Y_ENABLE_PIN) from JTAG NRST role
@@ -69,13 +69,14 @@
 
 // SPI Flash
 #define HAS_SPI_FLASH                          1
+#define SPI_FLASH_SIZE                 0x1000000  // 16MB
+
 #if HAS_SPI_FLASH
   // SPI 2
   #define SPI_FLASH_CS_PIN                  PB12  // SPI2_NSS / Flash chip-select
   #define SPI_FLASH_MOSI_PIN                PB15
   #define SPI_FLASH_MISO_PIN                PB14
   #define SPI_FLASH_SCK_PIN                 PB13
-  #define SPI_FLASH_SIZE               0x1000000  // 16MB
 #endif
 
 //
@@ -293,14 +294,13 @@
   #define TFT_BACKLIGHT_PIN                 PD13
 
   #define LCD_USE_DMA_FSMC                        // Use DMA transfers to send data to the TFT
+  #define FSMC_CS_PIN                       PD7   // NE4
+  #define FSMC_RS_PIN                       PD11  // A0
   #define FSMC_DMA_DEV                      DMA2
   #define FSMC_DMA_CHANNEL               DMA_CH5
 
-  #define FSMC_CS_PIN                       PD7   // NE4
-  #define FSMC_RS_PIN                       PD11  // A0
-
-  #define TFT_CS_PIN                 FSMC_CS_PIN
-  #define TFT_RS_PIN                 FSMC_RS_PIN
+  #define TFT_CS_PIN                  TFT_CS_PIN
+  #define TFT_RS_PIN                  TFT_RS_PIN
 
   #ifdef TFT_CLASSIC_UI
     #define TFT_MARLINBG_COLOR            0x3186  // Grey
@@ -309,14 +309,11 @@
     #define TFT_BTOKMENU_COLOR            0x145F  // Cyan
   #endif
   #define TFT_BUFFER_SIZE                  14400
-
 #elif HAS_GRAPHICAL_TFT
-
   #define TFT_RESET_PIN                     PC6
   #define TFT_BACKLIGHT_PIN                 PD13
   #define TFT_CS_PIN                        PD7   // NE4
   #define TFT_RS_PIN                        PD11  // A0
-
 #endif
 
 #if NEED_TOUCH_PINS

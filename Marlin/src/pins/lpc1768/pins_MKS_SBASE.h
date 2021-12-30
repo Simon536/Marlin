@@ -22,7 +22,7 @@
 #pragma once
 
 /**
- * Makerbase MKS SBASE pin assignments
+ * MKS SBASE pin assignments
  */
 
 #include "env_validate.h"
@@ -215,9 +215,6 @@
  * that the garbage/lines are erased immediately after the SD card accesses are completed.
  */
 
-//
-// LCD / Controller
-//
 #if IS_TFTGLCD_PANEL
 
   #if ENABLED(TFTGLCD_PANEL_SPI)
@@ -344,8 +341,10 @@
 #endif
 
 // UNUSED
-//#define PIN_P0_02                        P0_02  // AUX1 (Interrupt Capable/ADC/Serial Port 0)
-//#define PIN_P0_03                        P0_03  // AUX1 (Interrupt Capable/ADC/Serial Port 0)
+#define PIN_P0_27                          P0_27  // EXP2/Onboard SD
+#define PIN_P0_28                          P0_28  // EXP2
+#define PIN_P0_02                          P0_02  // AUX1 (Interrupt Capable/ADC/Serial Port 0)
+#define PIN_P0_03                          P0_03  // AUX1 (Interrupt Capable/ADC/Serial Port 0)
 
 /**
  *  PWMs
@@ -363,9 +362,9 @@
  *  PWM1.4   P1_23   SDSS(SSEL0)      J3-5  AUX-3
  *  PWM1.4   P2_03   Z_STEP_PIN
  *  PWM1.5   P1_24   X_MIN_PIN        10K PULLUP TO 3.3v, 1K SERIES
- *  PWM1.5   P2_04   MOSFET_B_PIN
+ *  PWM1.5   P2_04   RAMPS_D9_PIN
  *  PWM1.6   P1_26   Y_MIN_PIN        10K PULLUP TO 3.3v, 1K SERIES
- *  PWM1.6   P2_05   MOSFET_A_PIN
+ *  PWM1.6   P2_05   RAMPS_D10_PIN
  */
 
 /**

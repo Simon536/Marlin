@@ -38,7 +38,7 @@
 enum StealthIndex : uint8_t {
   LOGICAL_AXIS_LIST(STEALTH_AXIS_E, STEALTH_AXIS_X, STEALTH_AXIS_Y, STEALTH_AXIS_Z, STEALTH_AXIS_I, STEALTH_AXIS_J, STEALTH_AXIS_K)
 };
-#define TMC_INIT(ST, STEALTH_INDEX) tmc_init(stepper##ST, ST##_CURRENT, ST##_MICROSTEPS, ST##_HYBRID_THRESHOLD, stealthchop_by_axis[STEALTH_INDEX], chopper_timing_##ST, ST##_INTERPOLATE, ST##_HOLD_MULTIPLIER)
+#define TMC_INIT(ST, STEALTH_INDEX) tmc_init(stepper##ST, ST##_CURRENT, ST##_MICROSTEPS, ST##_HYBRID_THRESHOLD, stealthchop_by_axis[STEALTH_INDEX], chopper_timing_##ST, ST##_INTERPOLATE)
 
 //   IC = TMC model number
 //   ST = Stepper object letter
@@ -164,15 +164,6 @@ enum StealthIndex : uint8_t {
 #ifndef TMC_Z4_BAUD_RATE
   #define TMC_Z4_BAUD_RATE TMC_BAUD_RATE
 #endif
-#ifndef TMC_I_BAUD_RATE
-  #define TMC_I_BAUD_RATE TMC_BAUD_RATE
-#endif
-#ifndef TMC_J_BAUD_RATE
-  #define TMC_J_BAUD_RATE TMC_BAUD_RATE
-#endif
-#ifndef TMC_K_BAUD_RATE
-  #define TMC_K_BAUD_RATE TMC_BAUD_RATE
-#endif
 #ifndef TMC_E0_BAUD_RATE
   #define TMC_E0_BAUD_RATE TMC_BAUD_RATE
 #endif
@@ -200,7 +191,7 @@ enum StealthIndex : uint8_t {
 
 #if HAS_DRIVER(TMC2130)
   template<char AXIS_LETTER, char DRIVER_ID, AxisEnum AXIS_ID>
-  void tmc_init(TMCMarlin<TMC2130Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t hyb_thrs, const bool stealth, const chopper_timing_t &chop_init, const bool interpolate, float hold_multiplier) {
+  void tmc_init(TMCMarlin<TMC2130Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t hyb_thrs, const bool stealth, const chopper_timing_t &chop_init, const bool interpolate) {
     st.begin();
 
     CHOPCONF_t chopconf{0};
@@ -212,7 +203,7 @@ enum StealthIndex : uint8_t {
     TERN_(SQUARE_WAVE_STEPPING, chopconf.dedge = true);
     st.CHOPCONF(chopconf.sr);
 
-    st.rms_current(mA, hold_multiplier);
+    st.rms_current(mA, HOLD_MULTIPLIER);
     st.microsteps(microsteps);
     st.iholddelay(10);
     st.TPOWERDOWN(128); // ~2s until driver lowers to hold current
@@ -235,7 +226,7 @@ enum StealthIndex : uint8_t {
 
 #if HAS_DRIVER(TMC2160)
   template<char AXIS_LETTER, char DRIVER_ID, AxisEnum AXIS_ID>
-  void tmc_init(TMCMarlin<TMC2160Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t hyb_thrs, const bool stealth, const chopper_timing_t &chop_init, const bool interpolate, float hold_multiplier) {
+  void tmc_init(TMCMarlin<TMC2160Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t hyb_thrs, const bool stealth, const chopper_timing_t &chop_init, const bool interpolate) {
     st.begin();
 
     CHOPCONF_t chopconf{0};
@@ -247,7 +238,7 @@ enum StealthIndex : uint8_t {
     TERN_(SQUARE_WAVE_STEPPING, chopconf.dedge = true);
     st.CHOPCONF(chopconf.sr);
 
-    st.rms_current(mA, hold_multiplier);
+    st.rms_current(mA, HOLD_MULTIPLIER);
     st.microsteps(microsteps);
     st.iholddelay(10);
     st.TPOWERDOWN(128); // ~2s until driver lowers to hold current
@@ -604,7 +595,7 @@ enum StealthIndex : uint8_t {
 
 #if HAS_DRIVER(TMC2208)
   template<char AXIS_LETTER, char DRIVER_ID, AxisEnum AXIS_ID>
-  void tmc_init(TMCMarlin<TMC2208Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t hyb_thrs, const bool stealth, const chopper_timing_t &chop_init, const bool interpolate, float hold_multiplier) {
+  void tmc_init(TMCMarlin<TMC2208Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t hyb_thrs, const bool stealth, const chopper_timing_t &chop_init, const bool interpolate) {
     TMC2208_n::GCONF_t gconf{0};
     gconf.pdn_disable = true; // Use UART
     gconf.mstep_reg_select = true; // Select microsteps with UART
@@ -622,7 +613,7 @@ enum StealthIndex : uint8_t {
     TERN_(SQUARE_WAVE_STEPPING, chopconf.dedge = true);
     st.CHOPCONF(chopconf.sr);
 
-    st.rms_current(mA, hold_multiplier);
+    st.rms_current(mA, HOLD_MULTIPLIER);
     st.microsteps(microsteps);
     st.iholddelay(10);
     st.TPOWERDOWN(128); // ~2s until driver lowers to hold current
@@ -646,7 +637,7 @@ enum StealthIndex : uint8_t {
 
 #if HAS_DRIVER(TMC2209)
   template<char AXIS_LETTER, char DRIVER_ID, AxisEnum AXIS_ID>
-  void tmc_init(TMCMarlin<TMC2209Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t hyb_thrs, const bool stealth, const chopper_timing_t &chop_init, const bool interpolate, float hold_multiplier) {
+  void tmc_init(TMCMarlin<TMC2209Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t hyb_thrs, const bool stealth, const chopper_timing_t &chop_init, const bool interpolate) {
     TMC2208_n::GCONF_t gconf{0};
     gconf.pdn_disable = true; // Use UART
     gconf.mstep_reg_select = true; // Select microsteps with UART
@@ -664,7 +655,7 @@ enum StealthIndex : uint8_t {
     TERN_(SQUARE_WAVE_STEPPING, chopconf.dedge = true);
     st.CHOPCONF(chopconf.sr);
 
-    st.rms_current(mA, hold_multiplier);
+    st.rms_current(mA, HOLD_MULTIPLIER);
     st.microsteps(microsteps);
     st.iholddelay(10);
     st.TPOWERDOWN(128); // ~2s until driver lowers to hold current
@@ -688,7 +679,7 @@ enum StealthIndex : uint8_t {
 
 #if HAS_DRIVER(TMC2660)
   template<char AXIS_LETTER, char DRIVER_ID, AxisEnum AXIS_ID>
-  void tmc_init(TMCMarlin<TMC2660Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t, const bool, const chopper_timing_t &chop_init, const bool interpolate, float hold_multiplier) {
+  void tmc_init(TMCMarlin<TMC2660Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t, const bool, const chopper_timing_t &chop_init, const bool interpolate) {
     st.begin();
 
     TMC2660_n::CHOPCONF_t chopconf{0};
@@ -710,7 +701,7 @@ enum StealthIndex : uint8_t {
 
 #if HAS_DRIVER(TMC5130)
   template<char AXIS_LETTER, char DRIVER_ID, AxisEnum AXIS_ID>
-  void tmc_init(TMCMarlin<TMC5130Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t hyb_thrs, const bool stealth, const chopper_timing_t &chop_init, const bool interpolate, float hold_multiplier) {
+  void tmc_init(TMCMarlin<TMC5130Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t hyb_thrs, const bool stealth, const chopper_timing_t &chop_init, const bool interpolate) {
     st.begin();
 
     CHOPCONF_t chopconf{0};
@@ -722,7 +713,7 @@ enum StealthIndex : uint8_t {
     TERN_(SQUARE_WAVE_STEPPING, chopconf.dedge = true);
     st.CHOPCONF(chopconf.sr);
 
-    st.rms_current(mA, hold_multiplier);
+    st.rms_current(mA, HOLD_MULTIPLIER);
     st.microsteps(microsteps);
     st.iholddelay(10);
     st.TPOWERDOWN(128); // ~2s until driver lowers to hold current
@@ -745,7 +736,7 @@ enum StealthIndex : uint8_t {
 
 #if HAS_DRIVER(TMC5160)
   template<char AXIS_LETTER, char DRIVER_ID, AxisEnum AXIS_ID>
-  void tmc_init(TMCMarlin<TMC5160Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t hyb_thrs, const bool stealth, const chopper_timing_t &chop_init, const bool interpolate, float hold_multiplier) {
+  void tmc_init(TMCMarlin<TMC5160Stepper, AXIS_LETTER, DRIVER_ID, AXIS_ID> &st, const uint16_t mA, const uint16_t microsteps, const uint32_t hyb_thrs, const bool stealth, const chopper_timing_t &chop_init, const bool interpolate) {
     st.begin();
 
     CHOPCONF_t chopconf{0};
@@ -757,7 +748,7 @@ enum StealthIndex : uint8_t {
     TERN_(SQUARE_WAVE_STEPPING, chopconf.dedge = true);
     st.CHOPCONF(chopconf.sr);
 
-    st.rms_current(mA, hold_multiplier);
+    st.rms_current(mA, HOLD_MULTIPLIER);
     st.microsteps(microsteps);
     st.iholddelay(10);
     st.TPOWERDOWN(128); // ~2s until driver lowers to hold current
@@ -843,8 +834,12 @@ void restore_trinamic_drivers() {
 void reset_trinamic_drivers() {
   static constexpr bool stealthchop_by_axis[] = LOGICAL_AXIS_ARRAY(
     ENABLED(STEALTHCHOP_E),
-    ENABLED(STEALTHCHOP_XY), ENABLED(STEALTHCHOP_XY), ENABLED(STEALTHCHOP_Z),
-    ENABLED(STEALTHCHOP_I), ENABLED(STEALTHCHOP_J), ENABLED(STEALTHCHOP_K)
+    ENABLED(STEALTHCHOP_XY),
+    ENABLED(STEALTHCHOP_XY),
+    ENABLED(STEALTHCHOP_Z),
+    ENABLED(STEALTHCHOP_I),
+    ENABLED(STEALTHCHOP_J),
+    ENABLED(STEALTHCHOP_K)
   );
 
   #if AXIS_IS_TMC(X)

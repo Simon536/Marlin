@@ -23,21 +23,20 @@
 
 #include "env_validate.h"
 
-#define HAS_OTG_USB_HOST_SUPPORT                  // USB Flash Drive support
-#define USES_DIAG_JUMPERS
-
 // Onboard I2C EEPROM
 #define I2C_EEPROM
 #define MARLIN_EEPROM_SIZE                0x8000  // 32KB (24C32A)
 #define I2C_SCL_PIN                         PB8
 #define I2C_SDA_PIN                         PB9
 
+// USB Flash Drive support
+#define HAS_OTG_USB_HOST_SUPPORT
+
 // Avoid conflict with TIMER_TONE
-#define STEP_TIMER 10
+#define STEP_TIMER                            10
 
 //
 // Servos
-//
 #define SERVO0_PIN                          PB6
 
 //
@@ -57,32 +56,10 @@
 #define E2_DIAG_PIN                         PG14  // E2DET
 #define E3_DIAG_PIN                         PG15  // E3DET
 
-//
 // Z Probe (when not Z_MIN_PIN)
 //
 #ifndef Z_MIN_PROBE_PIN
-  #if ENABLED(BLTOUCH)
-    #define Z_MIN_PROBE_PIN                 PB7
-  #else
-    #define Z_MIN_PROBE_PIN                 PC5   // Probe (Proximity switch) port
-  #endif
-#endif
-
-//
-// Check for additional used endstop pins
-//
-#if HAS_EXTRA_ENDSTOPS
-  #define _ENDSTOP_IS_ANY(ES) X2_USE_ENDSTOP == ES || Y2_USE_ENDSTOP == ES || Z2_USE_ENDSTOP == ES || Z3_USE_ENDSTOP == ES || Z4_USE_ENDSTOP == ES
-  #if _ENDSTOP_IS_ANY(_XMIN_) || _ENDSTOP_IS_ANY(_XMAX_)
-    #define NEEDS_X_MINMAX 1
-  #endif
-  #if _ENDSTOP_IS_ANY(_YMIN_) || _ENDSTOP_IS_ANY(_YMAX_)
-    #define NEEDS_Y_MINMAX 1
-  #endif
-  #if _ENDSTOP_IS_ANY(_ZMIN_) || _ENDSTOP_IS_ANY(_ZMAX_)
-    #define NEEDS_Z_MINMAX 1
-  #endif
-  #undef _ENDSTOP_IS_ANY
+  #define Z_MIN_PROBE_PIN                   PB7
 #endif
 
 //
@@ -95,7 +72,7 @@
   #else
     #define X_MIN_PIN                E0_DIAG_PIN  // E0DET
   #endif
-#elif EITHER(DUAL_X_CARRIAGE, NEEDS_X_MINMAX)
+#elif ENABLED(X_DUAL_ENDSTOPS)
   #ifndef X_MIN_PIN
     #define X_MIN_PIN                 X_DIAG_PIN  // X-STOP
   #endif
@@ -113,7 +90,7 @@
   #else
     #define Y_MIN_PIN                E1_DIAG_PIN  // E1DET
   #endif
-#elif NEEDS_Y_MINMAX
+#elif ENABLED(Y_DUAL_ENDSTOPS)
   #ifndef Y_MIN_PIN
     #define Y_MIN_PIN                 Y_DIAG_PIN  // Y-STOP
   #endif
@@ -131,7 +108,7 @@
   #else
     #define Z_MIN_PIN                E2_DIAG_PIN  // PWRDET
   #endif
-#elif NEEDS_Z_MINMAX
+#elif ENABLED(Z_MULTI_ENDSTOPS)
   #ifndef Z_MIN_PIN
     #define Z_MIN_PIN                 Z_DIAG_PIN  // Z-STOP
   #endif
@@ -141,10 +118,6 @@
 #else
   #define Z_STOP_PIN                  Z_DIAG_PIN  // Z-STOP
 #endif
-
-#undef NEEDS_X_MINMAX
-#undef NEEDS_Y_MINMAX
-#undef NEEDS_Z_MINMAX
 
 //
 // Filament Runout Sensor
@@ -166,6 +139,13 @@
 //
 #ifndef POWER_LOSS_PIN
   #define POWER_LOSS_PIN                    PC0   // PWRDET
+#endif
+
+//
+// NeoPixel LED
+//
+#ifndef NEOPIXEL_PIN
+  #define NEOPIXEL_PIN                      PB0
 #endif
 
 //
@@ -232,6 +212,11 @@
 // Temperature Sensors
 //
 #define TEMP_BED_PIN                        PF3   // TB
+#if TEMP_SENSOR_0 == 20
+  #define TEMP_0_PIN                        PF8   // PT100 Connector
+#else
+  #define TEMP_0_PIN                        PF4   // TH0
+#endif
 #define TEMP_1_PIN                          PF5   // TH1
 #define TEMP_2_PIN                          PF6   // TH2
 #define TEMP_3_PIN                          PF7   // TH3
@@ -325,15 +310,17 @@
   #define TMC_BAUD_RATE                    19200
 #endif
 
-/**               ------                                      ------
- * (BEEPER) PE8  |10  9 | PE7  (BTN_ENC)         (MISO) PA6  |10  9 | PA5  (SCK)
- * (LCD_EN) PE9  | 8  7 | PE10 (LCD_RS)       (BTN_EN1) PB2  | 8  7 | PA4  (SD_SS)
- * (LCD_D4) PE12   6  5 | PE13 (LCD_D5)       (BTN_EN2) PB1    6  5 | PA7  (MOSI)
- * (LCD_D6) PE14 | 4  3 | PE15 (LCD_D7)     (SD_DETECT) PC15 | 4  3 | RESET
- *           GND | 2  1 | 5V                             GND | 2  1 | --
- *                ------                                      ------
- *                 EXP1                                        EXP2
+/**
+ *               ------                                              ------
+ *           NC | 1  2 | GND                                     5V | 1  2 | GND
+ *        RESET | 3  4 | PC15 (SD_DETECT)             (LCD_D7) PE15 | 3  4 | PE14 (LCD_D6)
+ *   (MOSI) PA7 | 5  6   PB1  (BTN_EN2)               (LCD_D5) PE13 | 5  6   PE12 (LCD_D4)
+ *  (SD_SS) PA4 | 7  8 | PB2  (BTN_EN1)               (LCD_RS) PE10 | 7  8 | PE9  (LCD_EN)
+ *    (SCK) PA5 | 9 10 | PA6  (MISO)                 (BTN_ENC)  PE7 | 9 10 | PE8  (BEEPER)
+ *               ------                                               -----
+ *               EXP2                                                EXP1
  */
+
 #define EXP1_03_PIN                         PE15
 #define EXP1_04_PIN                         PE14
 #define EXP1_05_PIN                         PE13
@@ -379,14 +366,14 @@
 
 #if ENABLED(BTT_MOTOR_EXPANSION)
   /**
-   *         ------                  ------
-   * M3DIAG |10  9 | M3RX     M3STP |10  9 | M3DIR
-   * M2DIAG | 8  7 | M2RX     M2STP | 8  7 | M2DIR
-   * M1DIAG   6  5 | M1RX     M1DIR   6  5 | M1STP
-   *   M3EN | 4  3 | M2EN      M1EN | 4  3 | --
-   *    GND | 2  1 | --         GND | 2  1 | --
-   *        ------                   ------
-   *         EXP1                     EXP2
+   *         ------                        ------
+   *     NC | 1  2 | GND               NC | 1  2 | GND
+   *     NC | 3  4 | M1EN            M2EN | 3  4 | M3EN
+   *  M1STP | 5  6   M1DIR           M1RX | 5  6   M1DIAG
+   *  M2DIR | 7  8 | M2STP           M2RX | 7  8 | M2DIAG
+   *  M3DIR | 9 10 | M3STP           M3RX | 9 10 | M3DIAG
+   *         ------                        ------
+   *         EXP2                         EXP1
    */
 
   // M1 on Driver Expansion Module
@@ -448,6 +435,11 @@
     #define LCD_PINS_ENABLE          EXP1_03_PIN
     #define LCD_PINS_D4              EXP1_05_PIN
 
+    // CR10_STOCKDISPLAY default timing is too fast
+    #undef BOARD_ST7920_DELAY_1
+    #undef BOARD_ST7920_DELAY_2
+    #undef BOARD_ST7920_DELAY_3
+
   #else
 
     #define LCD_PINS_RS              EXP1_07_PIN
@@ -493,10 +485,16 @@
 #endif  // HAS_WIRED_LCD
 
 // Alter timing for graphical display
-#if IS_U8GLIB_ST7920
-  #define BOARD_ST7920_DELAY_1               120
-  #define BOARD_ST7920_DELAY_2                80
-  #define BOARD_ST7920_DELAY_3               580
+#if HAS_MARLINUI_U8GLIB
+  #ifndef BOARD_ST7920_DELAY_1
+    #define BOARD_ST7920_DELAY_1   DELAY_NS(120)  // DELAY_NS(96)
+  #endif
+  #ifndef BOARD_ST7920_DELAY_2
+    #define BOARD_ST7920_DELAY_2   DELAY_NS(80)   // DELAY_NS(48)
+  #endif
+  #ifndef BOARD_ST7920_DELAY_3
+    #define BOARD_ST7920_DELAY_3   DELAY_NS(580)  // DELAY_NS(600)
+  #endif
 #endif
 
 #if HAS_SPI_TFT
@@ -518,13 +516,6 @@
 #endif
 
 //
-// NeoPixel LED
-//
-#ifndef NEOPIXEL_PIN
-  #define NEOPIXEL_PIN                      PB0
-#endif
-
-//
 // WIFI
 //
 
@@ -534,9 +525,9 @@
  *  (ESP-CS) PB12 | 10 |       | 7 | PB15 (ESP-MOSI)
  *           3.3V | 11 |       | 6 | PB14 (ESP-MISO)
  * (ESP-IO0)  PD7 | 12 |       | 5 | PB13 (ESP-CLK)
- * (ESP-IO4) PD10 | 13 |       | 4 | --
- *             -- | 14 |       | 3 | PE15 (ESP-EN)
- *  (ESP-RX)  PD8 | 15 |       | 2 | --
+ * (ESP-IO4) PD10 | 13 |       | 4 | NC
+ *             NC | 14 |       | 3 | PE15 (ESP-EN)
+ *  (ESP-RX)  PD8 | 15 |       | 2 | NC
  *  (ESP-TX)  PD9 | 16 |       | 1 | PE14 (ESP-RST)
  *                      -------
  *                       WIFI

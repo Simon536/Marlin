@@ -26,6 +26,9 @@
 
 #include "../inc/MarlinConfigPre.h"
 
+class __FlashStringHelper;
+typedef const __FlashStringHelper *progmem_str;
+
 //
 // Conditional type assignment magic. For example...
 //
@@ -52,8 +55,6 @@ struct IF<true, L, R> { typedef L type; };
 #define LOGICAL_AXIS_ELEM(O)    LOGICAL_AXIS_LIST(O.e, O.x, O.y, O.z, O.i, O.j, O.k)
 #define LOGICAL_AXIS_DECL(T,V)  LOGICAL_AXIS_LIST(T e=V, T x=V, T y=V, T z=V, T i=V, T j=V, T k=V)
 
-#define LOGICAL_AXES_STRING LOGICAL_AXIS_GANG("E", "X", "Y", "Z", AXIS4_STR, AXIS5_STR, AXIS6_STR)
-
 #if HAS_EXTRUDERS
   #define LIST_ITEM_E(N) , N
   #define CODE_ITEM_E(N) ; N
@@ -63,8 +64,6 @@ struct IF<true, L, R> { typedef L type; };
   #define CODE_ITEM_E(N)
   #define GANG_ITEM_E(N)
 #endif
-
-#define AXIS_COLLISION(L) (AXIS4_NAME == L || AXIS5_NAME == L || AXIS6_NAME == L)
 
 //
 // Enumerated axis indices
@@ -84,7 +83,7 @@ enum AxisEnum : uint8_t {
   #undef _EN_ITEM
 
   // Core also keeps toolhead directions
-  #if ANY(IS_CORE, MARKFORGED_XY, MARKFORGED_YX)
+  #if EITHER(IS_CORE, MARKFORGED_XY)
     , X_HEAD, Y_HEAD, Z_HEAD
   #endif
 
